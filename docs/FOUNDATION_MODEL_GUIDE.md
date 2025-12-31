@@ -2,6 +2,8 @@
 
 This guide explains how the foundation model infrastructure works in CellViT++ and provides step-by-step instructions for integrating additional foundation models.
 
+> **💡 TIP**: For experienced developers, check out the [Quick Reference Guide](FOUNDATION_MODEL_QUICK_REFERENCE.md) for code templates and checklists.
+
 ## Table of Contents
 1. [Understanding the Model Architecture](#understanding-the-model-architecture)
 2. [Foundation Model Infrastructure](#foundation-model-infrastructure)
