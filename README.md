@@ -540,7 +540,23 @@ For visualization of labels and data loading process, refer to our example noteb
 - Run without sweep: Examples for configurations without sweeps are also given inside each dataset folder. The training command `python3 ./cellvit/train_cell_classifier_head.py --config /path/to/your/config.yaml`
 
 ### 4. Final evaluation
-Evaluation depends on your setting. You can use your algorithm for inference by adding its path when running the inference script (see [Inference](#inference)). If you need to calculate specific metrics, we provide an evaluation script for the detection-based datasets under [`./cellvit/training/evaluate/inference_cellvit_experiment_detection.py`](/cellvit/training/evaluate/inference_cellvit_experiment_detection.py). Its CLI is explained in the example below and can be exposed by running `python3 ./cellvit/training/evaluate/inference_cellvit_experiment_detection.py --help`. Be aware to hand over the correct input shape as a list of arguments (height, width). Otherwise, if you need dataset specific metrics from other works, example evaluation scripts are placed in the [`./cellvit/training/evaluate`](cellvit/training/evaluate) folder. If you have segmentation masks similar to CoNSeP/HoVer-Net, you could start with the CoNSeP script.
+
+> [!TIP]
+> **New to evaluation?** See our comprehensive [Evaluation Guide](docs/EVALUATION_GUIDE.md) for detailed instructions and troubleshooting.
+
+Evaluation depends on your setting. You can use your algorithm for inference by adding its path when running the inference script (see [Inference](#inference)). 
+
+**For custom classifiers trained with detection datasets (CSV annotations):**
+- **Recommended**: Use the simplified wrapper script [`inference_cellvit_custom_classifier.py`](cellvit/training/evaluate/inference_cellvit_custom_classifier.py) with better validation and error messages
+- **Alternative**: Use the full-featured [`inference_cellvit_experiment_detection.py`](cellvit/training/evaluate/inference_cellvit_experiment_detection.py) script directly
+
+Both scripts calculate classification metrics (F1, Precision, Recall, AUROC) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
+
+**For other dataset types:**
+If you need dataset-specific metrics from benchmark datasets, example evaluation scripts are placed in the [`./cellvit/training/evaluate`](cellvit/training/evaluate) folder. For example:
+- PanNuke: `inference_cellvit_experiment_pannuke.py` ([understanding guide](docs/UNDERSTANDING_PANNUKE_SCRIPT.md))
+- CoNSeP: `inference_cellvit_experiment_consep.py`
+- Lizard: `inference_cellvit_experiment_lizard.py`
 
 ### Example
 We exemplify our workflow using the detection dataset. First please download the ViT256 checkpoint from the [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing) folder (Zenodo) and place it inside the checkpoint folder. Then performing the following steps one after another:
@@ -554,13 +570,21 @@ python3 ./cellvit/train_cell_classifier_head.py --config ./test_database/trainin
 # find your best configuration
 python3 ./scripts/find_best_hyperparameter.py /path/to/your/sweep --metric AUROC/Validation
 
-# run evaluation on test set
+# run evaluation on test set (using simplified script - recommended for beginners)
+python3 ./cellvit/training/evaluate/inference_cellvit_custom_classifier.py \
+  --logdir /path/to/your/run_log \
+  --dataset_path ./test_database/training_database/Example-Detection \
+  --cellvit_path ./checkpoints/CellViT-256-x40-AMP.pth \
+  --input_shape 256 256
+
+# OR use the full-featured script directly
 python3 ./cellvit/training/evaluate/inference_cellvit_experiment_detection.py \
   --logdir /path/to/your/run_log \
   --dataset_path ./test_database/training_database/Example-Detection \
   --cellvit_path ./checkpoints/CellViT-256-x40-AMP.pth \
   --input_shape 256 256
 # Be aware to give the correct input shape as used for training
+# For more details, see docs/EVALUATION_GUIDE.md
 ```
 
 Hint for WandB: You can find your token under Quickstart on the wandb website.
