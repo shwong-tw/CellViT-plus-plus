@@ -1,0 +1,179 @@
+# Example Configuration for Training CellViT++ with SAM-H Foundation Model
+#
+# This is a reference configuration showing the SAM-H setup that the authors used.
+# SAM-H is the largest variant of the Segment Anything Model.
+#
+# Prerequisites:
+# 1. Download SAM-H checkpoint from: https://github.com/facebookresearch/segment-anything
+# 2. Direct link: https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+# 3. Place it at: ./checkpoints/sam_vit_h.pth
+#
+# Usage:
+#   python3 ./cellvit/train_cellvit.py --config ./configs/foundation_models/train_sam_h_pannuke.yaml
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  mode: online
+  project: CellViT-Foundation-Comparison
+  notes: Training CellViT with SAM-H foundation model (baseline)
+  log_comment: CellViT-SAM-H-Fold-1
+  tags:
+    - SAM-H
+    - Foundation-Model
+    - Baseline
+    - Fold-1
+  wandb_dir: ./logs
+  log_dir: ./logs
+  level: Debug
+  group: CellViT-SAM-H
+
+# ============================================================================
+# Reproducibility
+# ============================================================================
+random_seed: 19
+
+# ============================================================================
+# Hardware Configuration
+# ============================================================================
+gpu: 0
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+data:
+  dataset: PanNuke
+  dataset_path: /path/to/pannuke/dataset  # UPDATE THIS PATH
+  
+  train_folds: [0]
+  val_folds: [1]
+  test_folds: [2]
+  
+  num_nuclei_classes: 6
+  num_tissue_classes: 19
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+model:
+  # Foundation Model: SAM-H (Huge)
+  # Other SAM options: sam-b (Base), sam-l (Large)
+  backbone: SAM-H
+  
+  # Path to SAM checkpoint
+  pretrained_encoder: ./checkpoints/sam_vit_h.pth  # UPDATE THIS PATH
+  
+  shared_skip_connections: true
+  
+  # SAM-H parameters (automatically set by CellViTSAM class):
+  # - embed_dim: 1280
+  # - depth: 32
+  # - num_heads: 16
+  # - extract_layers: [8, 16, 24, 32]
+  # - window_size: 14
+  # - global_attn_indexes: [7, 15, 23, 31]
+
+# ============================================================================
+# Loss Function Configuration
+# ============================================================================
+loss:
+  nuclei_binary_map:
+    focaltverskyloss:
+      loss_fn: FocalTverskyLoss
+      weight: 1
+    dice:
+      loss_fn: dice_loss
+      weight: 1
+  
+  hv_map:
+    mse:
+      loss_fn: mse_loss_maps
+      weight: 2.5
+    msge:
+      loss_fn: msge_loss_maps
+      weight: 8
+  
+  nuclei_type_map:
+    bce:
+      loss_fn: xentropy_loss
+      weight: 0.5
+    dice:
+      loss_fn: dice_loss
+      weight: 0.2
+    mcfocaltverskyloss:
+      loss_fn: MCFocalTverskyLoss
+      weight: 0.5
+      args:
+        num_classes: 6
+  
+  tissue_types:
+    ce:
+      loss_fn: CrossEntropyLoss
+      weight: 0.1
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+  drop_rate: 0
+  attn_drop_rate: 0.1
+  drop_path_rate: 0.1
+  
+  # SAM-H is the largest model
+  batch_size: 4   # SAM-H uses ~6GB VRAM per image
+                  # Recommended: 4 for 24GB GPU, 2 for 16GB GPU, 8 for 48GB GPU
+  
+  epochs: 130
+  
+  optimizer: AdamW
+  optimizer_hyperparameter:
+    betas: [0.85, 0.95]
+    lr: 0.0003
+    weight_decay: 0.0001
+  
+  scheduler:
+    scheduler_type: exponential
+    hyperparameters:
+      gamma: 0.85
+  
+  early_stopping_patience: 130
+  
+  unfreeze_epoch: 25
+  
+  sampling_gamma: 0.85
+  sampling_strategy: cell+tissue
+  
+  mixed_precision: true  # Highly recommended for SAM-H
+  
+  eval_every: 1
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 
+# SAM-H Specifications:
+# - Architecture: ViT-H (Vision Transformer Huge)
+# - Embedding dimension: 1280
+# - Depth: 32 transformer blocks
+# - Attention heads: 16
+# - Parameters: ~630M
+# - Training data: SA-1B dataset (1 billion masks)
+#
+# Memory Usage:
+# - SAM-H requires approximately 6GB VRAM per image (largest of all models)
+# - Total VRAM = batch_size * 6GB + overhead (~2GB)
+# - For 24GB GPU: batch_size = 3-4
+# - For 48GB GPU: batch_size = 6-8
+# - For 80GB GPU: batch_size = 12-16
+#
+# Comparison Notes:
+# - SAM-H provides baseline for comparing other foundation models
+# - Pretrained on natural images (not pathology-specific)
+# - Strong generalization capabilities
+# - Highest memory requirements
+#
+# Other SAM Variants:
+# - SAM-B (Base): backbone: sam-b, ~2.5GB VRAM per image, 91M params
+# - SAM-L (Large): backbone: sam-l, ~4GB VRAM per image, 308M params
+# - Use smaller variants if memory is limited
