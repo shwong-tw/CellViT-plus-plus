@@ -250,7 +250,7 @@ REQUIREMENTS:
   4. Input image dimensions used during training
 
 EXAMPLE USAGE:
-  python3 inference_cellvit_custom_classifier.py \\
+  python3 ./cellvit/training/evaluate/inference_cellvit_custom_classifier.py \\
     --logdir ./logs_local/CellViT-Classifier_2024_01_15_120000 \\
     --dataset_path ./test_database/training_database/Example-Detection \\
     --cellvit_path ./checkpoints/CellViT-256-x40-AMP.pth \\

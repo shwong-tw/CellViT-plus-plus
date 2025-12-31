@@ -172,7 +172,7 @@ nuclei_types:
 
 ## Comparison: PanNuke Script vs Detection Script
 
-| Feature | pannuke.py | detection.py |
+| Feature | inference_cellvit_experiment_pannuke.py | inference_cellvit_experiment_detection.py |
 |---------|-----------|--------------|
 | Input Data | Segmentation masks | CSV coordinates |
 | Tissue Types | Required | Not used |
@@ -186,11 +186,11 @@ nuclei_types:
 
 If you're unsure which script to use:
 1. Check your training config: `data.dataset` field
-   - `DetectionDataset` → Use detection.py
-   - `PanNukeDataset` → Use pannuke.py
+   - `DetectionDataset` → Use `inference_cellvit_experiment_detection.py`
+   - `PanNukeDataset` → Use `inference_cellvit_experiment_pannuke.py`
 2. Check your labels:
-   - CSV files with coordinates → Use detection.py
-   - NumPy instance masks → Use pannuke.py or consep.py
+   - CSV files with coordinates → Use `inference_cellvit_experiment_detection.py`
+   - NumPy instance masks → Use `inference_cellvit_experiment_pannuke.py` or `inference_cellvit_experiment_consep.py`
 3. See `docs/EVALUATION_GUIDE.md` for detailed guidance
 
 ## Key Takeaway
