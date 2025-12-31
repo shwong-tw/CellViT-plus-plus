@@ -20,7 +20,7 @@ ___
 # CellViT++: Energy-Efficient and Adaptive Cell Segmentation and Classification Using Foundation
 <div align="center">
 
-[Key Features](#key-features) • [Installation](#installation) • [Inference](#inference) • [Examples](#examples) • [Re-training](#re-training-your-own-classifier) • [Reproducability](#reproducability) • [Viewer](#web-based-viewer) • [Annotation](#annotation-tool) • [Acknowledgements](#acknowledgements) • [Citation](#Citation)
+[Key Features](#key-features) • [Installation](#installation) • [Inference](#inference) • [Examples](#examples) • [Foundation Models](#foundation-models) • [Re-training](#re-training-your-own-classifier) • [Reproducability](#reproducability) • [Viewer](#web-based-viewer) • [Annotation](#annotation-tool) • [Acknowledgements](#acknowledgements) • [Citation](#Citation)
 
 </div>
 
@@ -176,6 +176,42 @@ docker-compose up
 
 ### Model Checkpoints
 Checkpoints can be downloaded here from [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing). They should be placed inside the `./checkpoints` folder. Classifier checkpoints are already located inside the `./checkpoints/classifier` folder. Unfortunately, we cannot share all checkpoints due to their license.
+
+## Foundation Models
+
+CellViT++ supports multiple foundation models as backbones for cell segmentation. The framework is designed to be extensible, allowing you to integrate additional foundation models.
+
+### Available Foundation Models
+
+The following pretrained foundation models are currently supported:
+
+| Model | Variants | Embed Dim | Depth | Patch Size | Source | Links |
+|-------|----------|-----------|-------|------------|--------|-------|
+| **SAM** | B, L, H | 768-1280 | 12-32 | 16 | Meta AI | [Paper](https://segment-anything.com/) |
+| **UNI** | - | 1024 | 24 | 16 | Mahmood Lab | [GitHub](https://github.com/mahmoodlab/UNI) • [Paper](https://www.nature.com/articles/s41591-024-02857-3) |
+| **Virchow** | - | 1280 | 32 | 14 | Paige AI | [HuggingFace](https://huggingface.co/paige-ai/Virchow) • [Paper](https://doi.org/10.1038/s41591-024-03141-0) |
+| **Virchow2** | - | 1280 | 32 | 14 | Paige AI | [HuggingFace](https://huggingface.co/paige-ai/Virchow2) • [Paper](https://doi.org/10.48550/arXiv.2408.00738) |
+| **HIPT-256** | - | 384 | 12 | 16 | Mahmood Lab | - |
+
+### Adding Your Own Foundation Models
+
+Want to compare performance with additional foundation models? Check out our comprehensive guide:
+
+**📖 [Foundation Model Integration Guide](docs/FOUNDATION_MODEL_GUIDE.md)**
+
+This guide covers:
+- Understanding the CellViT++ model architecture
+- How foundation models are integrated as encoders
+- Step-by-step instructions for adding new foundation models
+- Complete implementation examples
+- Troubleshooting common issues
+
+The guide provides detailed explanations of:
+- Model infrastructure and file organization
+- Backbone implementation patterns
+- Forward pass and skip connection handling
+- Pretrained weight loading
+- Training and inference integration
 
 ## Framework Overview
 
