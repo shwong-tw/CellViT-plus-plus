@@ -5,6 +5,20 @@
 # Institute for Artifical Intelligence in Medicine,
 # University Medicine Essen
 
+"""
+Evaluation script for custom classifiers trained on detection datasets.
+
+NOTE: For a simpler interface with better validation and error messages,
+      consider using: inference_cellvit_custom_classifier.py
+
+This script evaluates classifiers trained with train_cell_classifier_head.py
+on detection datasets (CSV annotations with x, y coordinates and labels).
+
+For documentation and usage guide, see:
+    docs/EVALUATION_GUIDE.md
+    docs/EVALUATION_QUICKSTART.md
+"""
+
 import os
 import sys
 
