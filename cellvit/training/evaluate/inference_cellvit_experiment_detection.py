@@ -374,7 +374,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
 
     def _get_global_classifier_scores(
         self, predictions: torch.Tensor, probabilities: torch.Tensor, gt: torch.Tensor
-    ) -> Tuple[float, float, float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float, float, dict]:
         """Calculate global metrics for the classification head, *without* taking quality of the detection model into account
 
         Args:
@@ -383,24 +383,26 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
 
         Returns:
-            Tuple[float, float, float, float, float, float]:
-                * F1-Score
-                * Precision
-                * Recall
+            Tuple[float, float, float, float, float, float, dict]:
+                * F1-Score (macro average)
+                * Precision (macro average)
+                * Recall (macro average)
                 * Accuracy
-                * Auroc
-                * AP
+                * Auroc (macro average)
+                * AP (macro average)
+                * Per-class metrics dict with F1, Precision, Recall for each class
         """
+        # Global metrics (macro-averaged)
         auroc_func = AUROC(task="multiclass", num_classes=self.num_classes)
         acc_func = Accuracy(task="multiclass", num_classes=self.num_classes)
-        f1_func = F1Score(task="multiclass", num_classes=self.num_classes)
-        prec_func = Precision(task="multiclass", num_classes=self.num_classes)
-        recall_func = Recall(task="multiclass", num_classes=self.num_classes)
+        f1_func = F1Score(task="multiclass", num_classes=self.num_classes, average="macro")
+        prec_func = Precision(task="multiclass", num_classes=self.num_classes, average="macro")
+        recall_func = Recall(task="multiclass", num_classes=self.num_classes, average="macro")
         average_prec_func = AveragePrecision(
             task="multiclass", num_classes=self.num_classes
         )
 
-        # scores without taking detection into account
+        # Global scores without taking detection into account
         auroc_score = float(auroc_func(probabilities, gt).detach().cpu())
         acc_score = float(acc_func(predictions, gt).detach().cpu())
         f1_score = float(f1_func(predictions, gt).detach().cpu())
@@ -408,7 +410,25 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         recall_score = float(recall_func(predictions, gt).detach().cpu())
         average_prec = float(average_prec_func(probabilities, gt).detach().cpu())
 
-        return f1_score, prec_score, recall_score, acc_score, auroc_score, average_prec
+        # Per-class metrics
+        f1_func_per_class = F1Score(task="multiclass", num_classes=self.num_classes, average="none")
+        prec_func_per_class = Precision(task="multiclass", num_classes=self.num_classes, average="none")
+        recall_func_per_class = Recall(task="multiclass", num_classes=self.num_classes, average="none")
+        
+        f1_per_class = f1_func_per_class(predictions, gt).detach().cpu().numpy()
+        prec_per_class = prec_func_per_class(predictions, gt).detach().cpu().numpy()
+        recall_per_class = recall_func_per_class(predictions, gt).detach().cpu().numpy()
+        
+        # Organize per-class metrics
+        per_class_metrics = {}
+        for class_idx in range(self.num_classes):
+            per_class_metrics[class_idx] = {
+                "f1": float(f1_per_class[class_idx]),
+                "precision": float(prec_per_class[class_idx]),
+                "recall": float(recall_per_class[class_idx]),
+            }
+
+        return f1_score, prec_score, recall_score, acc_score, auroc_score, average_prec, per_class_metrics
 
     def _plot_confusion_matrix(
         self,
@@ -767,16 +787,17 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             acc_score,
             auroc_score,
             ap_score,
+            per_class_metrics,
         ) = self._get_global_classifier_scores(
             predictions=cleaned_inference_results["predictions"],
             probabilities=cleaned_inference_results["probabilities"],
             gt=cleaned_inference_results["gt"],
         )
         self.logger.info(
-            "Global Scores - Without taking cell detection quality into account:"
+            "Global Classification Scores - Without taking cell detection quality into account:"
         )
         self.logger.info(
-            f"F1: {f1_score:.3} - Prec: {prec_score:.3} - Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
+            f"Macro F1: {f1_score:.3} - Macro Prec: {prec_score:.3} - Macro Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
         )
         scores["classifier"]["global"] = {
             "F1": f1_score,
@@ -786,6 +807,21 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             "Auroc": auroc_score,
             "AP": ap_score,
         }
+        
+        # Add per-class classification metrics with class names
+        label_map = self.run_conf["data"]["label_map"]
+        label_map_int = {int(k): v for k, v in label_map.items()}
+        
+        scores["classifier"]["per_class"] = {}
+        self.logger.info("\nPer-Class Classification Metrics:")
+        self.logger.info(f"{'Class':<20} {'F1':>8} {'Precision':>12} {'Recall':>10}")
+        self.logger.info("-" * 55)
+        for class_idx, metrics in per_class_metrics.items():
+            class_name = label_map_int.get(class_idx, f"Class_{class_idx}")
+            scores["classifier"]["per_class"][class_name] = metrics
+            self.logger.info(
+                f"{class_name:<20} {metrics['f1']:>8.3f} {metrics['precision']:>12.3f} {metrics['recall']:>10.3f}"
+            )
 
         self._plot_confusion_matrix(
             predictions=cleaned_inference_results["predictions"],
@@ -811,12 +847,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             "detection_scores_tia": detection_scores_tia,
             "scores_ocelot": scores_ocelot,
         }
-        label_map = self.run_conf["data"]["label_map"]
-        label_map = {
-            int(k): v for k, v in label_map.items()
-        }  # replace cell_type by names and jsonify
+        # Use the same label_map_int from earlier for consistency
         scores["pipeline"]["detection_scores_tia"]["cell_types"] = {
-            label_map[k]: v
+            label_map_int[k]: v
             for k, v in scores["pipeline"]["detection_scores_tia"]["cell_types"].items()
         }
         scores_json = json.dumps(scores, indent=2)

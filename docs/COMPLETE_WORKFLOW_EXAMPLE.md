@@ -261,37 +261,36 @@ cat ./logs_local/CellViT-Classifier_2024_01_15_120000/inference_results/inferenc
 Example output:
 ```json
 {
-  "global_classifier": {
-    "auroc": 0.8923,
-    "f1": 0.8245,
-    "precision": 0.8456,
-    "recall": 0.8045,
-    "accuracy": 0.8534
-  },
-  "per_class": {
-    "Tumor Cell": {
-      "f1": 0.8567,
-      "precision": 0.8723,
-      "recall": 0.8415,
-      "auroc": 0.9123
+  "classifier": {
+    "global": {
+      "F1": 0.8245,
+      "Prec": 0.8456,
+      "Rec": 0.8045,
+      "Acc": 0.8534,
+      "Auroc": 0.8923,
+      "AP": 0.8765
     },
-    "Stromal Cell": {
-      "f1": 0.7892,
-      "precision": 0.8124,
-      "recall": 0.7675,
-      "auroc": 0.8745
-    },
-    "Immune Cell": {
-      "f1": 0.8334,
-      "precision": 0.8501,
-      "recall": 0.8175,
-      "auroc": 0.8956
-    },
-    "Other": {
-      "f1": 0.7123,
-      "precision": 0.7456,
-      "recall": 0.6812,
-      "auroc": 0.8234
+    "per_class": {
+      "Tumor Cell": {
+        "f1": 0.8567,
+        "precision": 0.8723,
+        "recall": 0.8415
+      },
+      "Stromal Cell": {
+        "f1": 0.7892,
+        "precision": 0.8124,
+        "recall": 0.7675
+      },
+      "Immune Cell": {
+        "f1": 0.8334,
+        "precision": 0.8501,
+        "recall": 0.8175
+      },
+      "Other": {
+        "f1": 0.7123,
+        "precision": 0.7456,
+        "recall": 0.6812
+      }
     }
   },
   "pipeline": {
@@ -304,6 +303,11 @@ Example output:
           "f1": 0.8234,
           "precision": 0.8456,
           "recall": 0.8023
+        },
+        "Stromal Cell": {
+          "f1": 0.7512,
+          "precision": 0.7823,
+          "recall": 0.7234
         }
         // ... other classes
       }
@@ -324,6 +328,8 @@ Open the confusion matrix images:
 
 #### C. Interpret Results
 
+**Overall Performance (Macro-Averaged Metrics):**
+
 **AUROC > 0.9**: Excellent! Your classifier is performing very well.
 
 **AUROC 0.7-0.9**: Good performance, may benefit from:
@@ -337,9 +343,24 @@ Open the confusion matrix images:
 - Consider more training data
 - Try different model architecture
 
+**Per-Class Performance:**
+
+The `per_class` metrics show F1, precision, and recall for each individual class. This is crucial for:
+- **Identifying weak classes**: Classes with low F1 scores need attention
+- **Understanding class imbalance**: Some classes may perform worse due to insufficient training data
+- **Targeted improvements**: Focus your data collection on poorly performing classes
+
+Example interpretation:
+- **Tumor Cell F1 = 0.857**: Excellent performance for this class
+- **Other F1 = 0.712**: This class needs improvement
+  - Check if "Other" is too broad/ambiguous
+  - Collect more training examples
+  - Review if it's being confused with other classes (check confusion matrix)
+
 **Confusion Matrix Insights:**
 - High off-diagonal between "Stromal" and "Other"? → These classes may be too similar
 - One class consistently misclassified? → Need more examples or better features
+- Use per-class F1 scores to identify which specific classes need work
 
 ### Step 8: Iterate if Needed
 

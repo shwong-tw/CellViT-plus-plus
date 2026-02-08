@@ -140,15 +140,20 @@ python3 ./cellvit/training/evaluate/inference_cellvit_experiment_detection.py \
 The script produces several types of metrics:
 
 **Global Classification Metrics** (without considering detection quality):
-- **AUROC**: Area Under ROC Curve - overall classification performance
-- **F1 Score**: Harmonic mean of precision and recall
-- **Precision**: Proportion of correct positive predictions
-- **Recall**: Proportion of actual positives correctly identified
+- **AUROC**: Area Under ROC Curve - overall classification performance (macro-averaged)
+- **Macro F1 Score**: Harmonic mean of precision and recall averaged across all classes
+- **Macro Precision**: Proportion of correct positive predictions averaged across classes
+- **Macro Recall**: Proportion of actual positives correctly identified averaged across classes
 - **Accuracy**: Overall correct predictions
 
+**Per-Class Classification Metrics** (pure classification performance for each class):
+- **F1 Score per Class**: F1 score calculated for each individual class
+- **Precision per Class**: Precision for each class
+- **Recall per Class**: Recall for each class
+
 **Pipeline Detection Metrics** (TIA evaluation - considers both detection and classification):
-- **Detection F1/Precision/Recall**: How well cells are detected
-- **Per-Class F1/Precision/Recall**: Performance for each cell type in the full pipeline
+- **Detection F1/Precision/Recall**: How well cells are detected overall
+- **Per-Class Pipeline Metrics**: Detection + classification performance for each cell type in the full pipeline
 
 **Confusion Matrix**:
 - Shows which classes are confused with each other

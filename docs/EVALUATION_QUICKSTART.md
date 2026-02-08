@@ -55,15 +55,32 @@ Results are saved in `./logs_local/CellViT-Classifier_YYYY_MM_DD_HHMMSS/inferenc
 1. **`inference_results.json`** - All metrics in JSON format
    ```json
    {
-     "global_classifier": {
-       "auroc": 0.89,
-       "f1": 0.82,
-       "precision": 0.84,
-       "recall": 0.81
-     },
-     "per_class": {
-       "Tumor Cell": {"f1": 0.85, "precision": 0.87, "recall": 0.83},
-       "sTIL": {"f1": 0.78, "precision": 0.80, "recall": 0.76}
+     "classifier": {
+       "global": {
+         "F1": 0.82,
+         "Prec": 0.84,
+         "Rec": 0.81,
+         "Acc": 0.85,
+         "Auroc": 0.89,
+         "AP": 0.87
+       },
+       "per_class": {
+         "Tumor Cell": {
+           "f1": 0.85,
+           "precision": 0.87,
+           "recall": 0.83
+         },
+         "sTIL": {
+           "f1": 0.78,
+           "precision": 0.80,
+           "recall": 0.76
+         },
+         "Stromal Cell": {
+           "f1": 0.79,
+           "precision": 0.81,
+           "recall": 0.77
+         }
+       }
      }
    }
    ```
@@ -82,9 +99,15 @@ Results are saved in `./logs_local/CellViT-Classifier_YYYY_MM_DD_HHMMSS/inferenc
 - 0.7-0.9: Good performance
 - < 0.7: May need improvement
 
-**F1 Score**
-- Balanced measure of precision and recall
+**Macro F1 Score**
+- Averaged F1 score across all classes
+- Treats all classes equally regardless of class imbalance
 - Good indicator of overall classification quality
+
+**Per-Class F1 Score**
+- F1 score calculated individually for each class
+- Shows which specific classes perform well or poorly
+- Essential for identifying classes that need more training data or better features
 
 **Confusion Matrix**
 - Shows which classes are confused with each other
