@@ -202,6 +202,7 @@ Both support multi-class nuclei type classification!
 - Calculates detection quality metrics
 - Outputs confusion matrices
 - Works with any custom classes
+- **Per-class F1 location:** `classifier.per_class[class_name]["f1"]`
 
 **Simplified wrapper:** `inference_cellvit_custom_classifier.py`
 - Same functionality, easier to use
@@ -215,26 +216,30 @@ Both support multi-class nuclei type classification!
 - Use: `inference_cellvit_experiment_pannuke.py`
 - Calculates: PQ, DQ, SQ metrics
 - Requires: `dataset_config.yaml` with tissue_types and nuclei_types
+- **Per-class F1 location:** `nuclei_metrics_d[nuclei_type]["f1_cell"]`
 
 **CoNSeP-like (nuclei types only):**
 - Use: `inference_cellvit_experiment_consep.py`
 - Calculates: Segmentation and classification metrics
 - Simpler structure than PanNuke
+- **Per-class F1 location:** Similar to PanNuke structure
 
 **Other benchmarks:**
 - Lizard: `inference_cellvit_experiment_lizard.py`
 - MoNuSeg: `inference_cellvit_experiment_monuseg.py`
 - etc.
 
+> 📖 **For segmentation datasets:** See [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md) for detailed guide with examples!
+
 ---
 
 ## Quick Reference Table
 
-| Your Annotations | Dataset Type | Training Config | Evaluation Script | Supports Classification? |
-|-----------------|--------------|-----------------|-------------------|------------------------|
-| CSV (x,y,label) | DetectionDataset | `dataset: DetectionDataset` | `inference_cellvit_experiment_detection.py` | ✅ Yes (multi-class) |
-| NumPy masks + types | SegmentationDataset | `dataset: SegmentationDataset` | `inference_cellvit_experiment_pannuke.py` | ✅ Yes (multi-class) |
-| NumPy masks (no tissue) | SegmentationDataset | `dataset: SegmentationDataset` | `inference_cellvit_experiment_consep.py` | ✅ Yes (multi-class) |
+| Your Annotations | Dataset Type | Training Config | Evaluation Script | Per-Class F1 Location | Supports Classification? |
+|-----------------|--------------|-----------------|-------------------|-----------------------|------------------------|
+| CSV (x,y,label) | DetectionDataset | `dataset: DetectionDataset` | `inference_cellvit_experiment_detection.py` | `classifier.per_class[class]["f1"]` | ✅ Yes (multi-class) |
+| NumPy masks + types (with tissue) | SegmentationDataset | `dataset: SegmentationDataset` | `inference_cellvit_experiment_pannuke.py` | `nuclei_metrics_d[type]["f1_cell"]` | ✅ Yes (multi-class) |
+| NumPy masks + types (no tissue) | SegmentationDataset | `dataset: SegmentationDataset` | `inference_cellvit_experiment_consep.py` | `nuclei_metrics_d[type]["f1_cell"]` | ✅ Yes (multi-class) |
 
 ---
 
