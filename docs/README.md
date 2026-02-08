@@ -19,6 +19,9 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 ### 🚀 New to Evaluation?
 Start here → [**Evaluation Quick Start**](EVALUATION_QUICKSTART.md)
 
+### 📊 Have Segmentation Dataset? Need Per-Class F1?
+Quick answer → [**Segmentation Evaluation Quick Start**](SEGMENTATION_EVALUATION_QUICKSTART.md)
+
 ### 📖 Need Detailed Information?
 Comprehensive guide → [**Evaluation Guide**](EVALUATION_GUIDE.md)
 
@@ -34,6 +37,18 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 ---
 
 ## Document Overview
+
+### SEGMENTATION_EVALUATION_QUICKSTART.md (NEW!)
+**Best for**: Users with segmentation datasets who need per-class F1 scores
+
+**Contains**:
+- Direct answer: which script to use for segmentation datasets
+- Example of per-class F1 output (console and JSON)
+- Step-by-step evaluation workflow
+- Difference between PanNuke-style and CoNSeP-style
+- Troubleshooting tips
+
+**Reading time**: 5-10 minutes
 
 ### TERMINOLOGY_GUIDE.md (NEW!)
 **Best for**: Anyone confused about "detection" vs "segmentation" terminology
@@ -101,6 +116,9 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ### Scenario 0: I'm confused about "detection" vs "segmentation"
 → Read [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md) first!
+
+### Scenario 0.5: I have segmentation dataset and need per-class F1 scores
+→ Read [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md) - Direct answer!
 
 ### Scenario 1: I just trained a custom classifier
 → Use [EVALUATION_QUICKSTART.md](EVALUATION_QUICKSTART.md)

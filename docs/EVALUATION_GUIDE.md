@@ -71,6 +71,7 @@ CellViT++ provides several evaluation scripts in `./cellvit/training/evaluate/`:
 - Calculates segmentation metrics (Dice, Jaccard, PQ scores)
 - Supports tissue types and nuclei types
 - Requires specific dataset structure with tissue_types and nuclei_types
+- **✅ Provides per-class F1 scores in `nuclei_metrics_d`**
 
 **When to Use**:
 - ✅ Your annotations are NumPy (.npy) files with instance masks
@@ -82,15 +83,20 @@ CellViT++ provides several evaluation scripts in `./cellvit/training/evaluate/`:
 - Nuclei type classification (multi-class)
 - Instance segmentation quality (PQ, DQ, SQ)
 - Tissue-specific performance
-- Per-nuclei-type performance
+- **Per-nuclei-type F1, precision, recall** (in `nuclei_metrics_d`)
+
+> 📖 **Quick guide for segmentation datasets:** See [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md)
 
 ### 3. Other Segmentation Dataset Scripts
 
 For NumPy mask annotations without tissue types:
 
 **`inference_cellvit_experiment_consep.py`**: For CoNSeP-style datasets (nuclei types only, no tissue types)
+- **✅ Also provides per-class F1 scores**
 
 Scripts like `inference_cellvit_experiment_lizard.py`, etc., are designed for specific benchmark datasets with their evaluation protocols.
+
+> 📖 **For segmentation datasets:** See [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md) for details on per-class metrics.
 
 ---
 
