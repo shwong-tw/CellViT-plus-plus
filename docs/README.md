@@ -2,6 +2,18 @@
 
 This directory contains comprehensive documentation for evaluating custom CellViT++ classifiers.
 
+## ⚠️ Confused About Terminology?
+
+**Start here if unclear about "detection" vs "segmentation":**
+→ [**Terminology Guide**](TERMINOLOGY_GUIDE.md) - Explains what these terms actually mean
+
+**TL;DR:**
+- "Detection" = CSV annotation format (still does nuclei type classification!)
+- "Segmentation" = NumPy mask format (also does nuclei type classification!)
+- Both support multi-class classification - choose based on annotation format!
+
+---
+
 ## Quick Links
 
 ### 🚀 New to Evaluation?
@@ -13,12 +25,27 @@ Comprehensive guide → [**Evaluation Guide**](EVALUATION_GUIDE.md)
 ### ❓ Confused About PanNuke Script?
 Understanding guide → [**Understanding PanNuke Script**](UNDERSTANDING_PANNUKE_SCRIPT.md)
 
+### 🔤 Confused About Terms?
+Terminology clarification → [**Terminology Guide**](TERMINOLOGY_GUIDE.md)
+
 ### 📋 Developer Reference
 Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ---
 
 ## Document Overview
+
+### TERMINOLOGY_GUIDE.md (NEW!)
+**Best for**: Anyone confused about "detection" vs "segmentation" terminology
+
+**Contains**:
+- Clear explanation of what these terms mean
+- Why both support nuclei type classification
+- Decision trees based on annotation format
+- Common confusion scenarios resolved
+- Quick reference tables
+
+**Reading time**: 10-15 minutes
 
 ### EVALUATION_QUICKSTART.md
 **Best for**: Users who want to evaluate their custom classifier quickly
@@ -72,13 +99,23 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ## Common Scenarios
 
+### Scenario 0: I'm confused about "detection" vs "segmentation"
+→ Read [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md) first!
+
 ### Scenario 1: I just trained a custom classifier
 → Use [EVALUATION_QUICKSTART.md](EVALUATION_QUICKSTART.md)
 
 ### Scenario 2: I'm not sure which evaluation script to use
-→ See decision tree in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#which-script-should-i-use)
+→ Check your annotation format:
+- CSV files → See [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#which-script-should-i-use) section on DetectionDataset
+- NumPy masks → See [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#which-script-should-i-use) section on SegmentationDataset
 
-### Scenario 3: I need to understand the PanNuke script
+### Scenario 3: I have segmentation masks with nuclei types
+→ You need a SegmentationDataset evaluation script!
+- Read [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md#scenario-2-i-have-segmentation-masks-with-nuclei-types)
+- Then use `inference_cellvit_experiment_pannuke.py` or `consep.py`
+
+### Scenario 4: I need to understand the PanNuke script
 → Read [UNDERSTANDING_PANNUKE_SCRIPT.md](UNDERSTANDING_PANNUKE_SCRIPT.md)
 
 ### Scenario 4: I'm getting errors during evaluation

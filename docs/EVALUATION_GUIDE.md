@@ -2,9 +2,26 @@
 
 This guide explains how to evaluate a custom classifier trained using `train_cell_classifier_head.py`.
 
+## ⚠️ Important: Understanding "Detection" vs "Segmentation"
+
+**Are you confused by these terms?** Read this first!
+
+- **"Detection Dataset"** = CSV annotations with (x, y, label) coordinates
+- **"Segmentation Dataset"** = NumPy annotations with instance masks and type labels
+
+**Both formats support nuclei type classification!** The terms refer to **annotation format**, not the task.
+
+> 📖 **Confused?** See [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md) for detailed clarification.
+
+**Quick decision:**
+- Have CSV files with coordinates? → Use DetectionDataset & `inference_cellvit_experiment_detection.py`
+- Have NumPy files with masks? → Use SegmentationDataset & `inference_cellvit_experiment_pannuke.py` (or similar)
+
+---
+
 ## Overview
 
-After training a classifier on your custom dataset, you need to evaluate its performance on test data. CellViT++ provides different evaluation scripts depending on your dataset type and requirements.
+After training a classifier on your custom dataset, you need to evaluate its performance on test data. CellViT++ provides different evaluation scripts depending on your **annotation format** and requirements.
 
 ## Table of Contents
 
@@ -20,58 +37,103 @@ After training a classifier on your custom dataset, you need to evaluate its per
 
 CellViT++ provides several evaluation scripts in `./cellvit/training/evaluate/`:
 
-### 1. `inference_cellvit_experiment_detection.py` (Recommended for Custom Classifiers)
+> **Note:** "Detection" and "Segmentation" refer to **annotation format**, not task type!
+> Both support multi-class nuclei type classification.
 
-**Purpose**: Evaluate classifiers trained on detection datasets (CSV annotations with x, y coordinates)
+### 1. `inference_cellvit_experiment_detection.py` (For CSV Annotations)
+
+**Purpose**: Evaluate classifiers trained on **CSV-based annotations** (point coordinates with labels)
 
 **Key Features**:
 - Works with custom class labels defined in your training config
-- Calculates classification metrics (F1, Precision, Recall, AUROC)
+- Calculates classification metrics (F1, Precision, Recall, AUROC) - both global and per-class
 - Calculates detection quality metrics (how well cells are detected)
 - Generates confusion matrices
 - Provides both global and per-class performance metrics
 
 **When to Use**:
-- You trained with `DetectionDataset` (CSV annotations with x, y coordinates and labels)
-- You want detailed classification performance metrics
-- You have custom cell types/classes
+- ✅ Your annotations are CSV files with (x, y, label) format
+- ✅ You trained with `DetectionDataset`
+- ✅ You want nuclei type classification metrics
+- ✅ You have custom cell types/classes (e.g., Tumor, Stromal, Immune, etc.)
 
-### 2. `inference_cellvit_experiment_pannuke.py`
+**What it evaluates:**
+- Nuclei type classification (multi-class)
+- Cell detection quality
+- Per-class classification performance
 
-**Purpose**: Evaluate models specifically on PanNuke dataset structure
+### 2. `inference_cellvit_experiment_pannuke.py` (For NumPy Masks with Tissue Types)
+
+**Purpose**: Evaluate models trained on **NumPy mask annotations** (PanNuke-style structure)
 
 **Key Features**:
-- Designed for PanNuke dataset with predefined tissue types and nuclei types
+- Designed for NumPy files with instance masks and type labels
 - Calculates segmentation metrics (Dice, Jaccard, PQ scores)
-- Requires specific dataset structure with tissue types
+- Supports tissue types and nuclei types
+- Requires specific dataset structure with tissue_types and nuclei_types
 
 **When to Use**:
-- You trained on PanNuke dataset or a dataset with the same structure
-- You need tissue-specific metrics
-- Your dataset has a `dataset_config.yaml` with tissue_types and nuclei_types
+- ✅ Your annotations are NumPy (.npy) files with instance masks
+- ✅ You trained with `SegmentationDataset` (PanNuke-style)
+- ✅ Your dataset has tissue types (e.g., breast, colon, etc.)
+- ✅ Your dataset has a `dataset_config.yaml` with tissue_types and nuclei_types
 
-### 3. Other Dataset-Specific Scripts
+**What it evaluates:**
+- Nuclei type classification (multi-class)
+- Instance segmentation quality (PQ, DQ, SQ)
+- Tissue-specific performance
+- Per-nuclei-type performance
 
-Scripts like `inference_cellvit_experiment_consep.py`, `inference_cellvit_experiment_lizard.py`, etc., are designed for specific benchmark datasets with their evaluation protocols.
+### 3. Other Segmentation Dataset Scripts
+
+For NumPy mask annotations without tissue types:
+
+**`inference_cellvit_experiment_consep.py`**: For CoNSeP-style datasets (nuclei types only, no tissue types)
+
+Scripts like `inference_cellvit_experiment_lizard.py`, etc., are designed for specific benchmark datasets with their evaluation protocols.
 
 ---
 
 ## Which Script Should I Use?
 
-Use this decision tree:
+Use this decision tree based on **annotation format**:
 
 ```
-Did you train with DetectionDataset (CSV annotations)?
-├─ YES → Use inference_cellvit_experiment_detection.py ✓
-└─ NO
-   └─ Did you train with SegmentationDataset (NumPy masks)?
-      ├─ YES → Is your dataset PanNuke or has tissue types?
-      │  ├─ YES → Use inference_cellvit_experiment_pannuke.py
-      │  └─ NO → Use inference_cellvit_experiment_consep.py (or similar)
-      └─ NO → Contact for support
+What format are your annotations in?
+
+├─ CSV files with (x, y, label) coordinates
+│  └─ Use: inference_cellvit_experiment_detection.py ✓
+│     (Even if you're doing nuclei type classification!)
+│
+└─ NumPy (.npy) files with instance masks
+   └─ Does your dataset have tissue types?
+      ├─ YES → Use: inference_cellvit_experiment_pannuke.py
+      │        (Requires dataset_config.yaml with tissue_types)
+      │
+      └─ NO → Use: inference_cellvit_experiment_consep.py
+               (Or similar benchmark-specific script)
 ```
 
-**For most custom classifiers trained using the workflow in the README: Use `inference_cellvit_experiment_detection.py`**
+### Common Confusion Resolved
+
+**❓ "I want to classify nuclei types - which script?"**
+- **Answer:** Depends on your annotation format!
+  - CSV coordinates → `inference_cellvit_experiment_detection.py`
+  - NumPy masks → `inference_cellvit_experiment_pannuke.py` or `consep.py`
+
+**❓ "I have segmentation masks with nuclei types - is that 'detection'?"**
+- **Answer:** No! "Detection" means CSV format. You have segmentation format.
+  - Use `inference_cellvit_experiment_pannuke.py` (if you have tissue types)
+  - Or `inference_cellvit_experiment_consep.py` (if no tissue types)
+
+**❓ "Does 'detection' script only do binary detection?"**
+- **Answer:** No! It does multi-class nuclei type classification.
+  - "Detection" refers to the annotation format (CSV), not the task
+  - It calculates per-class F1, precision, recall for all your classes
+
+**For most custom classifiers:** Check your training config's `dataset:` field
+- `dataset: DetectionDataset` → Use `inference_cellvit_experiment_detection.py`
+- `dataset: SegmentationDataset` → Use `inference_cellvit_experiment_pannuke.py` (or similar)
 
 ---
 

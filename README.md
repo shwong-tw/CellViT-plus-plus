@@ -437,7 +437,16 @@ This download example files that are placed inside the [`./test_database`](/test
 
 ## Re-training your own classifier on new data: Workflow
 
-### 1. Detection Annotations
+> **📖 Terminology Note:**
+> - **"Detection Annotations"** = CSV files with (x, y, label) coordinates
+> - **"Segmentation Annotations"** = NumPy files with instance masks and type labels
+> 
+> Both support multi-class nuclei type classification! The difference is the annotation format.
+> See [docs/TERMINOLOGY_GUIDE.md](docs/TERMINOLOGY_GUIDE.md) for details.
+
+### 1. Detection Annotations (CSV Format)
+
+**Use this if:** Your annotations are point coordinates in CSV files
 
 #### 1.1 Folder Structure
 To define the detection dataset, you should have the following folder structure:
@@ -496,8 +505,11 @@ To define the detection dataset, you should have the following folder structure:
   - Supported sizes for input_shape: 256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992, 1024
 - **Annotations**: CSV files containing x, y coordinates and labels. Labels are integers and start from 0.
 - **Label Map**: Recommended to keep track of your labels (see label_map.yaml) in the folders.
+- **Classification**: Supports multi-class nuclei type classification (e.g., 0=Tumor, 1=Stromal, 2=Immune, etc.)
 
-### 2. Segmentation Annotations
+### 2. Segmentation Annotations (NumPy Mask Format)
+
+**Use this if:** Your annotations are instance segmentation masks in NumPy files
 
 #### 2.1 Folder Structure
 Same folder structure as above for the detections, but the labels are now numpy (*.npy) files.
@@ -514,8 +526,14 @@ Same folder structure as above for the detections, but the labels are now numpy 
 - **Labels**: Stored as .npy files (NumPy arrays), inside there needs to be a dictionary with two keys:
   - **inst_map**: Instance map with each cell as a unique integer starting from 1 (0 = background), shape H x W (height, width)
   - **type_map**: Cell class for each integer (Values starting from 1 and not 0 as in detection)
+- **Classification**: Supports multi-class nuclei type classification (e.g., 1=Tumor, 2=Stromal, 3=Immune, etc.)
+- **Note**: Labels start at 1 (not 0 like in DetectionDataset), with 0 reserved for background
 
 For visualization of labels and data loading process, refer to our example notebook inside the segmentation dataset example.
+
+**We provide two exemplary datasets:**
+- Simple: [`./test_database/training_database/Example-Segmentation`](test_database/training_database/Example-Segmentation)
+- Advanced: [`./test_database/training_database/Example-Segmentation-Non-Squared`](test_database/training_database/Example-Segmentation-Non-Squared)
 
 ### 3. Find Hyperparameters and train your model
 - Define sweep config, an example is provided for both datasets (e.g., [`./test_database/training_database/Example-Detection/train_configs/ViT256/fold_0_sweep.yaml`](/test_database/training_database/Example-Detection/train_configs/ViT256/fold_0_sweep.yaml))
@@ -544,19 +562,24 @@ For visualization of labels and data loading process, refer to our example noteb
 > [!TIP]
 > **New to evaluation?** See our comprehensive [Evaluation Guide](docs/EVALUATION_GUIDE.md) for detailed instructions and troubleshooting.
 
-Evaluation depends on your setting. You can use your algorithm for inference by adding its path when running the inference script (see [Inference](#inference)). 
+> [!IMPORTANT]
+> **Confused about "detection" vs "segmentation"?** 
+> These terms refer to **annotation format**, not task type! Both support nuclei type classification.
+> See [Terminology Guide](docs/TERMINOLOGY_GUIDE.md) for clarification.
 
-**For custom classifiers trained with detection datasets (CSV annotations):**
+Evaluation depends on your annotation format. You can use your algorithm for inference by adding its path when running the inference script (see [Inference](#inference)). 
+
+**For CSV-based annotations (DetectionDataset):**
 - **Recommended**: Use the simplified wrapper script [`inference_cellvit_custom_classifier.py`](cellvit/training/evaluate/inference_cellvit_custom_classifier.py) with better validation and error messages
 - **Alternative**: Use the full-featured [`inference_cellvit_experiment_detection.py`](cellvit/training/evaluate/inference_cellvit_experiment_detection.py) script directly
 
-Both scripts calculate classification metrics (F1, Precision, Recall, AUROC) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
+Both scripts calculate classification metrics (F1, Precision, Recall, AUROC - both global and per-class) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
 
-**For other dataset types:**
-If you need dataset-specific metrics from benchmark datasets, example evaluation scripts are placed in the [`./cellvit/training/evaluate`](cellvit/training/evaluate) folder. For example:
-- PanNuke: `inference_cellvit_experiment_pannuke.py` ([understanding guide](docs/UNDERSTANDING_PANNUKE_SCRIPT.md))
-- CoNSeP: `inference_cellvit_experiment_consep.py`
-- Lizard: `inference_cellvit_experiment_lizard.py`
+**For NumPy mask annotations (SegmentationDataset):**
+If you have NumPy instance masks with nuclei type labels, use dataset-specific evaluation scripts:
+- PanNuke-style (with tissue types): `inference_cellvit_experiment_pannuke.py` ([understanding guide](docs/UNDERSTANDING_PANNUKE_SCRIPT.md))
+- CoNSeP-style (nuclei types only): `inference_cellvit_experiment_consep.py`
+- Other benchmarks: Lizard, MoNuSeg, etc. - see scripts in [`./cellvit/training/evaluate`](cellvit/training/evaluate)
 
 ### Example
 We exemplify our workflow using the detection dataset. First please download the ViT256 checkpoint from the [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing) folder (Zenodo) and place it inside the checkpoint folder. Then performing the following steps one after another:
