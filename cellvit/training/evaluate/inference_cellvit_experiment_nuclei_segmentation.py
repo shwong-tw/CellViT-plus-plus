@@ -2,7 +2,7 @@
 # Generic Nuclei Segmentation Dataset Inference Code
 #
 # @ Fabian Hörst, fabian.hoerst@uk-essen.de
-# Institute for Artifical Intelligence in Medicine,
+# Institute for Artificial Intelligence in Medicine,
 # University Medicine Essen
 
 """
@@ -171,9 +171,12 @@ class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
             # Convert string keys to int and create 0-indexed dict
             self.nuclei_type_names = {}
             for k, v in label_data.items():
-                idx = int(k) - 1 if isinstance(k, (int, str)) else k
-                if idx >= 0:
-                    self.nuclei_type_names[idx] = v
+                try:
+                    idx = int(k) - 1
+                    if idx >= 0:
+                        self.nuclei_type_names[idx] = v
+                except (ValueError, TypeError):
+                    self.logger.warning(f"Skipping invalid label key: {k}")
         else:
             self.logger.warning(
                 f"Unexpected label map format in {label_map_path}. "
@@ -476,8 +479,7 @@ class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
             # Per cell type scores
             image_pq = []
             pq_clx = {"dq": [], "sq": [], "pq": []}
-            for cell_type_idx in range(0, self.num_classes):
-                cell_type_idx = cell_type_idx + 1  # 0 is background
+            for cell_type_idx in range(1, self.num_classes + 1):
                 pred_nuclei_inst_map = remap_label(
                     pred_map[cell_type_idx, :, :], by_size=False
                 )
@@ -737,7 +739,7 @@ class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
                         cell_idx
                     ]["contour"].tolist()
                     cell_found = True
-            assert cell_found, "Not all cells have predictions"
+            assert cell_found, f"Cell not found for centroid ({row_pred}, {col_pred}) in image {image_name}"
 
         return cell_dict
 
