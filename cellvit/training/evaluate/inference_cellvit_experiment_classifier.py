@@ -50,21 +50,43 @@ from cellvit.utils.tools import unflatten_dict
 
 class CellViTClassifierInferenceExperiment(ABC):
     """Inference Experiment for CellViT with a Classifier Head
+    
+    This class implements a two-stage evaluation pipeline:
+    
+    Stage 1 - Cell Detection (CellViT):
+        - Detects and segments individual cells from images
+        - Extracts feature embeddings for each detected cell
+        - Uses pretrained CellViT model (cellvit_path)
+    
+    Stage 2 - Cell Classification (Classifier Head):
+        - Classifies detected cells into nuclei types
+        - Uses your trained classifier (logdir/checkpoints/checkpoint_name)
+        - Takes cell embeddings as input, outputs class predictions
+    
+    Why both models are needed:
+        - CellViT: Pretrained base model for cell detection (universal)
+        - Classifier: Your trained model for your specific cell types (custom)
+        - Pipeline: Image → CellViT → Embeddings → Classifier → Class Labels
 
     Args:
-        logdir (Union[Path, str]): Log directory with the trained classifier
-        cellvit_path (Union[Path, str]): Path to pretrained CellViT model
+        logdir (Union[Path, str]): Directory containing your trained classifier checkpoint
+            - The classifier checkpoint should be at: {logdir}/checkpoints/{checkpoint_name}
+            - This is created automatically during training
+        cellvit_path (Union[Path, str]): Path to pretrained CellViT base model
+            - This is the segmentation model (e.g., CellViT-256-x40.pth)
+            - Download from CellViT model repository
+            - Used for detecting cells and extracting features
         dataset_path (Union[Path, str]): Path to the dataset (parent path, not the fold path)
         normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
         gpu (int, optional): GPU to use. Defaults to 0.
         comment (str, optional): Comment for storing. Defaults to None.
-        checkpoint_name (str, optional): Name of the checkpoint file to load. Defaults to "model_best.pth".
+        checkpoint_name (str, optional): Name of the classifier checkpoint file. Defaults to "model_best.pth".
 
     Attributes:
         logger (Logger): Logger for the experiment
-        model (nn.Module): The model used for inference
-        run_conf (dict): Configuration for the run
-        cellvit_model (nn.Module): The CellViT model used
+        model (nn.Module): The classifier model (YOUR trained model from logdir)
+        run_conf (dict): Configuration for the classifier training run
+        cellvit_model (nn.Module): The CellViT segmentation model (pretrained base model)
         cellvit_run_conf (dict): Configuration for the CellViT model
         inference_transforms (Callable): Transforms applied for inference
         inference_dataset (Dataset): Dataset used for inference
@@ -73,11 +95,14 @@ class CellViTClassifierInferenceExperiment(ABC):
         logdir (Path): Directory for logs
         comment (str): Comment for the experiment
         test_result_dir (Path): Directory for test results
-        model_path (Path): Path to the model
-        cellvit_path (Path): Path to the CellViT model
+        model_path (Path): Path to the classifier checkpoint (in logdir/checkpoints/)
+        cellvit_path (Path): Path to the CellViT model (pretrained base model)
         dataset_path (Path): Path to the dataset
         normalize_stains (bool): If stains should be normalized
         device (str): Device used for the experiment (e.g., "cuda:0")
+    
+    See Also:
+        docs/UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md - Detailed explanation of why both models are needed
 
     Methods:
         _create_inference_directory(comment: str) -> Path:
@@ -141,7 +166,9 @@ class CellViTClassifierInferenceExperiment(ABC):
 
         self.logdir = Path(logdir)
         self.comment = comment
+        # Path to YOUR trained classifier (in logdir/checkpoints/)
         self.model_path = self.logdir / "checkpoints" / checkpoint_name
+        # Path to pretrained CellViT base model (for cell detection)
         self.cellvit_path = Path(cellvit_path)
         self.dataset_path = Path(dataset_path)
         self.normalize_stains = normalize_stains
@@ -149,9 +176,11 @@ class CellViTClassifierInferenceExperiment(ABC):
 
         self.test_result_dir = self._create_inference_directory(comment)
         self._instantiate_logger()
+        # Load CellViT model (Stage 1: Cell detection and feature extraction)
         self.cellvit_model, self.cellvit_run_conf = self._load_cellvit_model(
             checkpoint_path=self.cellvit_path
         )
+        # Load Classifier model (Stage 2: Cell classification using extracted features)
         self.model, self.run_conf = self._load_model(checkpoint_path=self.model_path)
         self.num_classes = self.run_conf["data"]["num_classes"]
         self.inference_transforms = self._load_inference_transforms(

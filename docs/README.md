@@ -56,6 +56,9 @@ Terminology clarification → [**Terminology Guide**](TERMINOLOGY_GUIDE.md)
 ### 🔍 Understanding "Without Taking Detection Into Account"
 Detailed explanation → [**Detection vs Classification Metrics**](UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md)
 
+### 🏗️ Understanding the Two-Stage Architecture
+**Why both cellvit_path and model_best.pth?** → [**Two-Stage Architecture**](UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md)
+
 ### 📋 Developer Reference
 Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
@@ -160,6 +163,31 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 **Reading time**: 10-15 minutes
 
+### UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md
+**Best for**: Understanding the phrase "without taking detection into account"
+
+**Contains**:
+- Explanation of two-stage evaluation (detection + classification)
+- How classification metrics ignore detection quality
+- Code walkthrough of cell pairing process
+- Why you get two different F1 scores
+- Use cases for each metric type
+
+**Reading time**: 10-15 minutes
+
+### UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md (⭐ NEW!)
+**Best for**: Understanding why both cellvit_path and model_best.pth are needed
+
+**Contains**:
+- Explanation of two-model architecture (CellViT + Classifier)
+- Visual diagram of the pipeline
+- Code walkthrough showing where each model is loaded
+- Why you cannot use only one model
+- Training vs inference model usage
+- Common misconceptions and FAQ
+
+**Reading time**: 10-15 minutes
+
 ### EVALUATION_SUMMARY.md
 **Best for**: Developers and maintainers
 
@@ -201,10 +229,13 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 ### Scenario 5: What does "without taking detection into account" mean?
 → Read [UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md](UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md)
 
-### Scenario 6: I'm getting errors during evaluation
+### Scenario 6: Why do I need both cellvit_path and model_best.pth?
+→ Read [UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md](UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md)
+
+### Scenario 7: I'm getting errors during evaluation
 → Check troubleshooting in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#troubleshooting)
 
-### Scenario 7: I want to understand all the metrics
+### Scenario 8: I want to understand all the metrics
 → See metrics section in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#understanding-the-metrics)
 
 ---

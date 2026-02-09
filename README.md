@@ -571,6 +571,15 @@ For visualization of labels and data loading process, refer to our example noteb
 > These terms refer to **annotation format**, not task type! Both support nuclei type classification.
 > See [Terminology Guide](docs/TERMINOLOGY_GUIDE.md) for clarification.
 
+> [!NOTE]
+> **Understanding the Two-Stage Architecture:**
+> Evaluation requires **two different models**:
+> 1. **CellViT model** (`cellvit_path`) - Pretrained base model for cell detection
+> 2. **Classifier** (`logdir/checkpoints/model_best.pth`) - YOUR trained model for classification
+> 
+> Why both? CellViT detects cells → Classifier assigns your custom classes
+> See [Two-Stage Architecture Guide](docs/UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md) for full explanation.
+
 Evaluation depends on your annotation format. You can use your algorithm for inference by adding its path when running the inference script (see [Inference](#inference)). 
 
 **For CSV-based annotations (DetectionDataset):**
