@@ -563,6 +563,10 @@ For visualization of labels and data loading process, refer to our example noteb
 > **New to evaluation?** See our comprehensive [Evaluation Guide](docs/EVALUATION_GUIDE.md) for detailed instructions and troubleshooting.
 
 > [!IMPORTANT]
+> **⭐ QUICK ANSWER: Segmentation dataset with per-class F1 scores?**
+> See [Direct Answer Guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md) for step-by-step instructions!
+
+> [!IMPORTANT]
 > **Confused about "detection" vs "segmentation"?** 
 > These terms refer to **annotation format**, not task type! Both support nuclei type classification.
 > See [Terminology Guide](docs/TERMINOLOGY_GUIDE.md) for clarification.
@@ -573,13 +577,17 @@ Evaluation depends on your annotation format. You can use your algorithm for inf
 - **Recommended**: Use the simplified wrapper script [`inference_cellvit_custom_classifier.py`](cellvit/training/evaluate/inference_cellvit_custom_classifier.py) with better validation and error messages
 - **Alternative**: Use the full-featured [`inference_cellvit_experiment_detection.py`](cellvit/training/evaluate/inference_cellvit_experiment_detection.py) script directly
 
-Both scripts calculate classification metrics (F1, Precision, Recall, AUROC - both global and per-class) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
+Both scripts calculate classification metrics (F1, Precision, Recall, AUROC - both global and **per-class**) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
 
 **For NumPy mask annotations (SegmentationDataset):**
 If you have NumPy instance masks with nuclei type labels, use dataset-specific evaluation scripts:
-- PanNuke-style (with tissue types): `inference_cellvit_experiment_pannuke.py` ([understanding guide](docs/UNDERSTANDING_PANNUKE_SCRIPT.md))
-- CoNSeP-style (nuclei types only): `inference_cellvit_experiment_consep.py`
+- **⭐ Most common**: `inference_cellvit_experiment_pannuke.py` - provides **per-class F1 scores** ([direct answer guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md))
+- CoNSeP benchmark only: `inference_cellvit_experiment_consep.py` - also provides **per-class F1 scores**
 - Other benchmarks: Lizard, MoNuSeg, etc. - see scripts in [`./cellvit/training/evaluate`](cellvit/training/evaluate)
+
+**See also:**
+- [Segmentation Evaluation Quickstart](docs/SEGMENTATION_EVALUATION_QUICKSTART.md) - Quick guide for segmentation datasets
+- [Understanding PanNuke Script](docs/UNDERSTANDING_PANNUKE_SCRIPT.md) - Details on the PanNuke evaluation script
 
 ### Example
 We exemplify our workflow using the detection dataset. First please download the ViT256 checkpoint from the [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing) folder (Zenodo) and place it inside the checkpoint folder. Then performing the following steps one after another:

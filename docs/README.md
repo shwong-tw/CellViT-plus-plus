@@ -2,6 +2,16 @@
 
 This directory contains comprehensive documentation for evaluating custom CellViT++ classifiers.
 
+## ⭐ MOST COMMON QUESTION
+
+**"My training dataset is with segmentation annotation. I've done the retraining. Which file do I use to run evaluation on test dataset and get per-class F1 scores?"**
+
+→ **[DIRECT ANSWER: Click Here](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)** ←
+
+**TL;DR:** Use `inference_cellvit_experiment_pannuke.py` - it already provides per-class F1 scores!
+
+---
+
 ## ⚠️ Confused About Terminology?
 
 **Start here if unclear about "detection" vs "segmentation":**
@@ -15,6 +25,9 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 ---
 
 ## Quick Links
+
+### ⭐ Direct Answer for Segmentation Dataset
+**Most asked question** → [**Direct Answer: Segmentation Evaluation**](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)
 
 ### 🚀 New to Evaluation?
 Start here → [**Evaluation Quick Start**](EVALUATION_QUICKSTART.md)
@@ -41,7 +54,18 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ## Document Overview
 
-### SEGMENTATION_EVALUATION_QUICKSTART.md (NEW!)
+### DIRECT_ANSWER_SEGMENTATION_EVALUATION.md (⭐ NEW!)
+**Best for**: Direct answer to the most common question
+
+**Contains**:
+- Step-by-step command to run
+- Expected output with per-class F1 scores
+- Troubleshooting common issues
+- Quick verification checklist
+
+**Reading time**: 5 minutes
+
+### SEGMENTATION_EVALUATION_QUICKSTART.md
 **Best for**: Users with segmentation datasets who need per-class F1 scores
 
 **Contains**:
@@ -130,11 +154,11 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ## Common Scenarios
 
-### Scenario 0: I'm confused about "detection" vs "segmentation"
-→ Read [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md) first!
+### Scenario 0: ⭐ I have segmentation dataset and need per-class F1 scores (MOST COMMON)
+→ **[DIRECT_ANSWER_SEGMENTATION_EVALUATION.md](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)** - Direct step-by-step answer!
 
-### Scenario 0.5: I have segmentation dataset and need per-class F1 scores
-→ Read [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md) - Direct answer!
+### Scenario 0.5: I'm confused about "detection" vs "segmentation"
+→ Read [TERMINOLOGY_GUIDE.md](TERMINOLOGY_GUIDE.md) first!
 
 ### Scenario 1: I just trained a custom classifier
 → Use [EVALUATION_QUICKSTART.md](EVALUATION_QUICKSTART.md)
