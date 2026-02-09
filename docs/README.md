@@ -8,12 +8,16 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 
 ### Step 1: Do you have tissue type labels?
 
-- **NO (only nuclei classes)** → [**Solution for Segmentation WITHOUT Tissue Types**](SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md) ← Most common!
+- **NO (only nuclei classes)** → [**Use the Generic Nuclei Segmentation Script**](SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md) ← **Most common! RECOMMENDED**
+  - Script: `inference_cellvit_experiment_nuclei_segmentation.py`
+  - No dummy data needed, works out of the box!
+  
 - **YES (both tissue and nuclei types)** → [**Direct Answer for Segmentation WITH Tissue Types**](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)
+  - Script: `inference_cellvit_experiment_pannuke.py`
 
 **TL;DR:**
-- Only nuclei: Add dummy tissue type to use PanNuke script, or create custom evaluation
-- With tissue: Use `inference_cellvit_experiment_pannuke.py` directly
+- Only nuclei: Use new generic script `inference_cellvit_experiment_nuclei_segmentation.py` (clean, no workarounds needed)
+- With tissue: Use PanNuke script `inference_cellvit_experiment_pannuke.py`
 
 ---
 

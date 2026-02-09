@@ -8,223 +8,83 @@
 - ✅ Completed retraining
 - ❓ Need per-class F1 scores
 
-## The Problem
+## The Solution: Use the New Generic Script! ⭐
 
-The `inference_cellvit_experiment_pannuke.py` script expects **both** tissue types AND nuclei types because it's designed for the PanNuke dataset structure.
+**GOOD NEWS:** We now have a dedicated script for nuclei-only segmentation datasets!
 
-## The Solution
+**USE THIS SCRIPT:** `inference_cellvit_experiment_nuclei_segmentation.py`
 
-You have **two options** depending on your dataset structure:
+**WHY:** This script is specifically designed for segmentation datasets with only nuclei classes (no tissue types required).
 
 ---
 
-## Option 1: Use PanNuke Script with Workaround (Recommended if it works)
+## Quick Start
 
-The PanNuke script CAN work without tissue types if you provide a dummy tissue type configuration.
+### Step 1: Verify Your Dataset Structure
 
-### Step 1: Check Your Dataset Configuration
+Your dataset should look like this:
 
-Look at your training run's `config.yaml`:
-
-```bash
-cat /path/to/your/training/run/config.yaml
+```
+your_dataset/
+├── test/                 # Or "val", "Test", etc.
+│   ├── images/
+│   │   └── *.png, *.jpg
+│   └── labels/           # Or "labels-1000-1000", etc.
+│       └── *.npy or *.mat (containing inst_map and type_map)
+└── label_map.yaml        # Nuclei type definitions
 ```
 
-Check if it has a `dataset_config` section that looks like this:
+### Step 2: Check Your label_map.yaml
+
+This file defines your nuclei classes:
 
 ```yaml
-dataset_config:
-  nuclei_types:
-    0: Background
-    1: Tumor
-    2: Non-Tumor
-    3: Inflammatory
-    # etc.
+1: "Tumor"
+2: "Non-Tumor"
+3: "Inflammatory"
+4: "Stromal"
+# Add all your nuclei classes here (0 is reserved for Background)
 ```
 
-### Step 2: Add Dummy Tissue Types (if needed)
+**Note:** You can also use `dataset_config.yaml` with a `nuclei_types` section - the script auto-detects both formats.
 
-If your `dataset_config.yaml` doesn't have tissue types, you can add a single dummy tissue type:
-
-**Create or edit `dataset_config.yaml` in your dataset folder:**
-
-```yaml
-nuclei_types:
-  0: Background
-  1: Tumor
-  2: Non-Tumor
-  3: Inflammatory
-  # Add all your nuclei classes here
-
-tissue_types:
-  0: "default"  # Dummy tissue type - all images belong to this
-```
-
-This tells the script that all your images belong to one tissue type called "default", so it will just evaluate nuclei types.
-
-### Step 3: Run Evaluation
+### Step 3: Run the Evaluation
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_pannuke.py \
-  --run_dir /path/to/your/training/run \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+  --logdir /path/to/your/training/run \
+  --cellvit_path /path/to/cellvit/model.pth \
+  --dataset_path /path/to/your/dataset \
   --checkpoint_name model_best.pth \
-  --gpu 0 \
-  --magnification 40
+  --split test \
+  --gpu 0
 ```
 
-### What to Expect
+**Replace these values:**
+- `/path/to/your/training/run` → Your training run directory (e.g., `./logs/my_training_2024_01_15`)
+- `/path/to/cellvit/model.pth` → Path to CellViT backbone checkpoint
+- `/path/to/your/dataset` → Path to your dataset folder
+- `--split test` → Your test split name (test, val, Test, etc.)
 
-The script will:
-- Process all images as tissue type "default"
-- Calculate **per-class F1 scores** for each nuclei type
-- Ignore tissue-specific metrics (since there's only one tissue type)
+### Step 4: Get Per-Class F1 Scores
 
-**Output:**
+**Console Output:**
+
 ```
 ******************** Nuclei Detection Metrics ********************
 Nuclei Type          Precision      Recall          F1
 ----------------------------------------------------------------
-Tumor                   0.872        0.845       0.858    ← Your nuclei classes
-Non-Tumor               0.823        0.798       0.810
-Inflammatory            0.791        0.774       0.782
+Tumor                   0.872        0.845       0.858    ← Per-class F1
+Non-Tumor               0.823        0.798       0.810    ← Per-class F1
+Inflammatory            0.791        0.774       0.782    ← Per-class F1
+Stromal                 0.745        0.712       0.728    ← Per-class F1
 ----------------------------------------------------------------
-Average                 0.829        0.806       0.817
+Average                 0.808        0.782       0.795    ← Average F1
 ```
 
----
+**JSON Output:**
 
-## Option 2: Create a Custom Evaluation Script
-
-If Option 1 doesn't work or your dataset structure is very different, you'll need to create a custom evaluation script.
-
-### Approach A: Adapt the PanNuke Script
-
-1. **Copy the PanNuke script:**
-```bash
-cp ./cellvit/training/evaluate/inference_cellvit_experiment_pannuke.py \
-   ./cellvit/training/evaluate/inference_my_custom_segmentation.py
-```
-
-2. **Modify the script to remove tissue type dependencies:**
-   - Remove tissue type loading
-   - Remove tissue-specific metrics calculation
-   - Focus only on nuclei type metrics
-
-3. **Run your custom script:**
-```bash
-python3 ./cellvit/training/evaluate/inference_my_custom_segmentation.py \
-  --run_dir /path/to/your/training/run \
-  --checkpoint_name model_best.pth \
-  --gpu 0 \
-  --magnification 40
-```
-
-### Approach B: Check if You Actually Have Detection Data
-
-If your annotations are actually in CSV format (x, y, label) rather than NumPy masks:
-
-```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_detection.py \
-  --logdir /path/to/your/training/run \
-  --dataset_path /path/to/your/dataset \
-  --cellvit_path /path/to/cellvit/model.pth \
-  --checkpoint_name model_best.pth \
-  --input_shape 256 256 \
-  --gpu 0
-```
-
-This script provides per-class F1 scores for CSV-based annotations.
-
----
-
-## Quick Diagnostic: Which Approach to Use?
-
-Answer these questions:
-
-### 1. What format are your annotations?
-
-**A) NumPy files (.npy) with instance masks**
-→ You have segmentation data - continue to question 2
-
-**B) CSV files with (x, y, label) coordinates**
-→ Use `inference_cellvit_experiment_detection.py` (see Approach B above)
-
-### 2. Do you have a dataset_config.yaml file?
-
-**Yes, and it has nuclei_types:**
-```yaml
-nuclei_types:
-  0: Background
-  1: Class1
-  2: Class2
-```
-→ Try **Option 1** (add dummy tissue types)
-
-**No, or missing nuclei_types:**
-→ Try **Option 2** (custom script)
-
-### 3. What does your training config show?
-
-Check your training run's `config.yaml`:
-
-```bash
-cat /path/to/your/training/run/config.yaml | grep -A 20 "dataset_config"
-```
-
-**If you see `tissue_types` in the config:**
-→ Your dataset already has tissue types! Use PanNuke script directly
-
-**If you only see `nuclei_types`:**
-→ Try **Option 1** (add dummy tissue type)
-
-**If you don't see dataset_config:**
-→ You likely have detection data, try **Approach B**
-
----
-
-## Example: Full Walkthrough for Option 1
-
-### Scenario
-- You have segmentation annotations
-- 3 nuclei classes: Tumor, Stromal, Immune
-- No tissue types
-
-### Step 1: Create dataset_config.yaml
-
-In your dataset folder, create `dataset_config.yaml`:
-
-```yaml
-nuclei_types:
-  0: Background
-  1: Tumor
-  2: Stromal
-  3: Immune
-
-tissue_types:
-  0: "all"  # Dummy - all images are this tissue type
-```
-
-### Step 2: Update Your Training Config (if needed)
-
-If your training run's `config.yaml` doesn't reference this, you may need to ensure the dataset configuration is loaded. Check:
-
-```bash
-cat ./logs/your_training_run/config.yaml
-```
-
-### Step 3: Run Evaluation
-
-```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_pannuke.py \
-  --run_dir ./logs/your_training_run \
-  --checkpoint_name model_best.pth \
-  --gpu 0 \
-  --magnification 40
-```
-
-### Step 4: Check Results
-
-Results will be in `./logs/your_training_run/test_results/inference_results.json`:
+Results saved to `{logdir}/test_results/inference_results.json`:
 
 ```json
 {
@@ -232,84 +92,198 @@ Results will be in `./logs/your_training_run/test_results/inference_results.json
     "Tumor": {
       "f1_cell": 0.858,
       "prec_cell": 0.872,
-      "rec_cell": 0.845
+      "rec_cell": 0.845,
+      "pq": 0.654,
+      "dq": 0.789,
+      "sq": 0.829
     },
-    "Stromal": {
+    "Non-Tumor": {
       "f1_cell": 0.810,
-      "prec_cell": 0.823,
-      "rec_cell": 0.798
+      ...
     },
-    "Immune": {
-      "f1_cell": 0.782,
-      "prec_cell": 0.791,
-      "rec_cell": 0.774
-    }
+    ...
   },
   "dataset": {
-    "f1_detection": 0.817  // Average F1
+    "f1_detection": 0.795,    // Average F1
+    "prec_detection": 0.808,
+    "rec_detection": 0.782
   }
 }
 ```
 
 ---
 
+## Advanced Usage
+
+### Different Ground Truth Format
+
+If your labels are in .mat format instead of .npy:
+
+```bash
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+  --logdir /path/to/your/training/run \
+  --cellvit_path /path/to/cellvit/model.pth \
+  --dataset_path /path/to/your/dataset \
+  --checkpoint_name model_best.pth \
+  --split test \
+  --gt_format mat \
+  --gpu 0
+```
+
+### Different Label Map File
+
+If your label map file has a different name:
+
+```bash
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+  --logdir /path/to/your/training/run \
+  --cellvit_path /path/to/cellvit/model.pth \
+  --dataset_path /path/to/your/dataset \
+  --checkpoint_name model_best.pth \
+  --label_map_file my_custom_labels.yaml \
+  --gpu 0
+```
+
+### With Stain Normalization
+
+If you used stain normalization during training:
+
+```bash
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+  --logdir /path/to/your/training/run \
+  --cellvit_path /path/to/cellvit/model.pth \
+  --dataset_path /path/to/your/dataset \
+  --checkpoint_name model_best.pth \
+  --normalize_stains \
+  --gpu 0
+```
+
+---
+
+## Complete Example
+
+### Your Dataset
+
+```
+/data/my_nuclei_dataset/
+├── test/
+│   ├── images/
+│   │   ├── img_001.png
+│   │   ├── img_002.png
+│   │   └── ...
+│   └── labels/
+│       ├── img_001.npy
+│       ├── img_002.npy
+│       └── ...
+└── label_map.yaml
+```
+
+### Your label_map.yaml
+
+```yaml
+1: "Epithelial"
+2: "Lymphocyte"
+3: "Neutrophil"
+4: "Macrophage"
+```
+
+### Command to Run
+
+```bash
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+  --logdir ./logs/my_epithelial_training_2024_01_15 \
+  --cellvit_path ./models/cellvit_sam_h.pth \
+  --dataset_path /data/my_nuclei_dataset \
+  --checkpoint_name model_best.pth \
+  --split test \
+  --gpu 0
+```
+
+### Output
+
+The script will create:
+- `./logs/my_epithelial_training_2024_01_15/test_results/inference_results.json` - All metrics
+- `./logs/my_epithelial_training_2024_01_15/test_results/cell_predictions/` - Per-image predictions
+- `./logs/my_epithelial_training_2024_01_15/test_results/confusion_matrix.png` - Confusion matrix
+
+---
+
+## Key Advantages
+
+✅ **No tissue types needed** - Works with nuclei classes only  
+✅ **No dummy data** - No need to modify your training dataset  
+✅ **Generic and flexible** - Works with any segmentation dataset structure  
+✅ **Per-class F1 scores** - Automatic calculation for all nuclei types  
+✅ **Multiple metrics** - F1, Precision, Recall, PQ, DQ, SQ for each class  
+✅ **Easy to use** - Minimal configuration required  
+
+---
+
+## Comparison: Old vs New Approach
+
+### ❌ Old Approach (Dummy Tissue Type)
+- Required creating dummy tissue type in config
+- Might confuse evaluation logic
+- Not ideal for production use
+- Workaround, not a real solution
+
+### ✅ New Approach (Generic Script)
+- Designed specifically for nuclei-only datasets
+- Clean and straightforward
+- No dummy data needed
+- Production-ready
+
+---
+
 ## Troubleshooting
 
-### Error: "KeyError: 'tissue_types'"
+### Error: "label_map.yaml not found"
 
-**Cause:** The script is looking for tissue types in your dataset config but can't find them.
+**Cause:** The script can't find your label map file.
 
-**Solution:** Add a dummy tissue type to your `dataset_config.yaml` (see Option 1, Step 2)
+**Solution:** Either create `label_map.yaml` in your dataset folder, or specify the path:
 
-### Error: "Dataset not found" or "Dataset path incorrect"
+```bash
+--label_map_file /path/to/your/label_map.yaml
+```
 
-**Cause:** The script can't find your test dataset.
+### Error: "labels folder not found"
 
-**Solution:** The PanNuke script loads the dataset automatically from the run configuration. Make sure your training run's `config.yaml` has the correct dataset path.
+**Cause:** The script can't find the labels folder in your split directory.
 
-### Error: Different error message
+**Solution:** Make sure your dataset structure matches:
+```
+dataset_path/
+└── {split}/
+    └── labels/  # Or "labels-1000-1000", "Labels", etc.
+```
 
-**Solution:** You may need to create a custom evaluation script (Option 2). Please provide:
-- The exact error message
-- Your dataset folder structure
-- Your training config.yaml content
+The script auto-detects common folder names. If yours is different, it will show an error with the expected path.
+
+### Error: "Ground truth file not found"
+
+**Cause:** Your .npy or .mat files don't match the image names.
+
+**Solution:** Ensure that for each `images/img_001.png`, there's a corresponding `labels/img_001.npy` (or `.mat`).
+
+### Different Results Than Expected
+
+**Check:**
+1. Are you using the same model checkpoint you trained?
+2. Is your dataset the same as during training?
+3. Did you use stain normalization during training? (Add `--normalize_stains` if yes)
 
 ---
 
 ## Summary
 
-**If you have segmentation annotations WITHOUT tissue types:**
+**For segmentation datasets WITHOUT tissue types:**
 
-1. **Try this first:** Add a dummy tissue type to your dataset_config.yaml
-2. **Run:** `inference_cellvit_experiment_pannuke.py`
-3. **Get:** Per-class F1 scores for each nuclei type
+1. **Use:** `inference_cellvit_experiment_nuclei_segmentation.py`
+2. **Requires:** Only nuclei type labels (no tissue types needed)
+3. **Provides:** Per-class F1 scores for each nuclei type
+4. **Benefits:** Clean, generic, production-ready
 
-**If that doesn't work:**
-- Create a custom evaluation script based on PanNuke
-- Or verify if you actually have detection data (CSV format)
+**No need for dummy tissue types or data modifications!**
 
-**Files to check:**
-- Your training run's `config.yaml`
-- Your dataset's `dataset_config.yaml` or `label_map.yaml`
-- Your annotation file format (.npy vs .csv)
-
----
-
-## Need More Help?
-
-If you're still stuck, please provide:
-
-1. **Your annotation format:**
-   ```bash
-   ls -la /path/to/your/dataset/train/
-   ls -la /path/to/your/dataset/train/labels/ | head -5
-   ```
-
-2. **Your training config:**
-   ```bash
-   cat /path/to/your/training/run/config.yaml | grep -A 50 "data:"
-   ```
-
-3. **Any error messages** you're getting
-
-This will help diagnose the exact issue and provide a precise solution.
+This is the recommended solution for all nuclei-only segmentation datasets.

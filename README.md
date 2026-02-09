@@ -583,7 +583,7 @@ Both scripts calculate classification metrics (F1, Precision, Recall, AUROC - bo
 If you have NumPy instance masks with nuclei type labels:
 
 **⚠️ Important:** Check if you have tissue type labels!
-- **Only nuclei classes (no tissue types)?** → See [Solution Guide](docs/SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md)
+- **Only nuclei classes (no tissue types)?** → **Use `inference_cellvit_experiment_nuclei_segmentation.py`** ([guide](docs/SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md)) - **RECOMMENDED**
 - **Both tissue types and nuclei types?** → Use `inference_cellvit_experiment_pannuke.py` - provides **per-class F1 scores** ([guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md))
 - **CoNSeP benchmark only?** → Use `inference_cellvit_experiment_consep.py` - also provides **per-class F1 scores**
 - **Other benchmarks?** → Lizard, MoNuSeg, etc. - see scripts in [`./cellvit/training/evaluate`](cellvit/training/evaluate)
