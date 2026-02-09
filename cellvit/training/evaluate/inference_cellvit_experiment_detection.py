@@ -337,17 +337,24 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
                     image_pred_dict[image_name][cell_idx + 1] = pred_dict[cell_idx + 1]
 
                 # get a paired representation
+                # This pairs detected cells with ground truth cells (within 15 pixel distance)
+                # - paired: Cells that were correctly detected (match ground truth)
+                # - unpaired_true: Ground truth cells that weren't detected (false negatives)
+                # - unpaired_pred: Detected cells that don't match ground truth (false positives)
                 paired, unpaired_true, unpaired_pred = pair_coordinates(
                     true_centroids, pred_centroids, 15
                 )
                 # paired[:, 0] -> left set -> true
                 # paired[:, 1] -> right set -> pred
+                
+                # Only add correctly detected cells (paired) to extracted_cells_matching
+                # These will be used for classification evaluation "without taking detection into account"
                 for pair in paired:
                     extracted_cells_matching.append(
                         {
                             "image": image_name,
                             "coords": pred_centroids[pair[1]],
-                            "type": cell_types[pair[0]],
+                            "type": cell_types[pair[0]],  # Ground truth type for this paired cell
                             "token": patch_token[pair[1]],
                         }
                     )
@@ -376,11 +383,30 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         self, predictions: torch.Tensor, probabilities: torch.Tensor, gt: torch.Tensor
     ) -> Tuple[float, float, float, float, float, float, dict]:
         """Calculate global metrics for the classification head, *without* taking quality of the detection model into account
+        
+        This function evaluates PURE CLASSIFICATION PERFORMANCE by:
+        1. Only using correctly detected cells (paired with ground truth)
+        2. Ignoring false positives and false negatives from detection
+        3. Assuming perfect cell detection
+        
+        "Without taking detection into account" means:
+        - We only evaluate cells that were correctly detected (matched to ground truth)
+        - We don't penalize the classifier for cells that CellViT failed to detect
+        - We don't penalize the classifier for false positive detections
+        - We measure: "If detection were perfect, how good is the classifier?"
+        
+        This is useful for:
+        - Isolating classification performance from detection performance
+        - Debugging which component (detection vs classification) needs improvement
+        - Comparing classifier architectures independently of detection quality
 
         Args:
             predictions (torch.Tensor): Class-Predictions. Shape: Num-cells
-            probabilities (torch.Tensor): Probabilities for all classes. Shape: Shape: Num-cells x Num-classes
+                                       (only for correctly detected cells)
+            probabilities (torch.Tensor): Probabilities for all classes. Shape: Num-cells x Num-classes
+                                         (only for correctly detected cells)
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
+                              (only for correctly detected cells)
 
         Returns:
             Tuple[float, float, float, float, float, float, dict]:
@@ -391,6 +417,10 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
                 * Auroc (macro average)
                 * AP (macro average)
                 * Per-class metrics dict with F1, Precision, Recall for each class
+                
+        Note:
+            For complete pipeline performance (including detection quality), 
+            see the pipeline metrics calculated in _calculate_pipeline_scores()
         """
         # Global metrics (macro-averaged)
         auroc_func = AUROC(task="multiclass", num_classes=self.num_classes)
@@ -740,6 +770,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         )
 
         # Step 1: Extract cells with CellViT
+        # This step detects cells and creates two lists:
+        # - extracted_cells_cleaned: Only cells that match ground truth (correct detections)
+        # - extracted_cells: All detected cells (including false positives)
         with torch.no_grad():
             for _, (images, cell_gt_batch, types_batch, image_names) in tqdm.tqdm(
                 enumerate(cellvit_dl), total=len(cellvit_dl)
@@ -776,6 +809,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             scores["cellvit_scores"] = cellvit_detection_scores
 
         # Step 2: Classify Cell Tokens with the classifier, but only the cleaned version
+        # We use extracted_cells_cleaned (only correctly detected cells) to evaluate
+        # classification performance "without taking detection into account"
+        # This isolates classifier quality from detection quality
         cleaned_inference_results = self._get_classifier_result(extracted_cells_cleaned)
 
         scores["classifier"] = {}
@@ -795,6 +831,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         )
         self.logger.info(
             "Global Classification Scores - Without taking cell detection quality into account:"
+        )
+        self.logger.info(
+            "  (Evaluated only on correctly detected cells - assumes perfect detection)"
         )
         self.logger.info(
             f"Macro F1: {f1_score:.3} - Macro Prec: {prec_score:.3} - Macro Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
@@ -830,6 +869,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         )
 
         # Step 3: Classify Cell Tokens, but with the uncleaned version and calculate Ocelot Metrics
+        # We use extracted_cells (all detected cells, including false positives) to evaluate
+        # complete pipeline performance "with detection quality included"
+        # This reflects real-world system performance
         inference_results = self._get_classifier_result(extracted_cells)
         inference_results.pop("gt")
         cell_pred_dict = self.update_cell_dict_with_predictions(

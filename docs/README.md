@@ -31,6 +31,9 @@ Understanding guide → [**Understanding PanNuke Script**](UNDERSTANDING_PANNUKE
 ### 🔤 Confused About Terms?
 Terminology clarification → [**Terminology Guide**](TERMINOLOGY_GUIDE.md)
 
+### 🔍 Understanding "Without Taking Detection Into Account"
+Detailed explanation → [**Detection vs Classification Metrics**](UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md)
+
 ### 📋 Developer Reference
 Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
@@ -49,6 +52,19 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 - Troubleshooting tips
 
 **Reading time**: 5-10 minutes
+
+### UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md (NEW!)
+**Best for**: Understanding what "without taking detection into account" means
+
+**Contains**:
+- Explanation of two-stage evaluation (detection + classification)
+- How "without detection" metrics isolate classifier performance
+- Visual comparison of the two evaluation modes
+- Code implementation details
+- Use cases for each metric type
+- Debugging guide using both metrics
+
+**Reading time**: 15-20 minutes
 
 ### TERMINOLOGY_GUIDE.md (NEW!)
 **Best for**: Anyone confused about "detection" vs "segmentation" terminology
@@ -136,10 +152,13 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 ### Scenario 4: I need to understand the PanNuke script
 → Read [UNDERSTANDING_PANNUKE_SCRIPT.md](UNDERSTANDING_PANNUKE_SCRIPT.md)
 
-### Scenario 4: I'm getting errors during evaluation
+### Scenario 5: What does "without taking detection into account" mean?
+→ Read [UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md](UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md)
+
+### Scenario 6: I'm getting errors during evaluation
 → Check troubleshooting in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#troubleshooting)
 
-### Scenario 5: I want to understand all the metrics
+### Scenario 7: I want to understand all the metrics
 → See metrics section in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#understanding-the-metrics)
 
 ---
