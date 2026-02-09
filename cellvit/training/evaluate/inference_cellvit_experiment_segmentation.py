@@ -147,7 +147,80 @@ class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
             checkpoint_name=checkpoint_name,
         )
 
+        self._validate_dataset_structure()
         self._load_label_map()
+
+    def _validate_dataset_structure(self) -> None:
+        """Validate that the dataset has the expected structure
+        
+        Raises:
+            FileNotFoundError: If dataset structure is invalid
+        """
+        errors = []
+        
+        # Check if split folder exists
+        split_path = self.dataset_path / self.split
+        if not split_path.exists():
+            errors.append(
+                f"❌ Split folder not found: {split_path}\n"
+                f"   Expected: {self.dataset_path}/{self.split}/\n"
+                f"   Available splits:\n"
+            )
+            if self.dataset_path.exists():
+                subdirs = [d.name for d in self.dataset_path.iterdir() if d.is_dir()]
+                if subdirs:
+                    for subdir in subdirs:
+                        errors.append(f"      - {subdir}")
+                else:
+                    errors.append(f"      (no subdirectories found)")
+            
+        # Check if images folder exists
+        images_path = split_path / "images"
+        if not images_path.exists():
+            errors.append(
+                f"❌ Images folder not found: {images_path}\n"
+                f"   Expected: {split_path}/images/\n"
+            )
+        
+        # Check if labels folder exists
+        label_path = self._get_gt_label_folder()
+        if not label_path.exists():
+            errors.append(
+                f"❌ Labels folder not found\n"
+                f"   Checked these locations:\n"
+                f"      - {split_path}/labels/\n"
+                f"      - {split_path}/Labels/\n"
+                f"      - {split_path}/labels-1000-1000/\n"
+                f"      - {split_path}/annotations/\n"
+                f"   Make sure your dataset has a labels folder in the split directory.\n"
+            )
+        
+        if errors:
+            error_message = (
+                "\n" + "="*70 + "\n"
+                "🛑 Dataset Structure Validation Failed\n"
+                "="*70 + "\n\n"
+                + "\n\n".join(errors) + "\n\n"
+                + "="*70 + "\n"
+                "Expected dataset structure:\n"
+                f"{self.dataset_path}/\n"
+                f"├── {self.split}/\n"
+                f"│   ├── images/\n"
+                f"│   │   └── *.png, *.jpg\n"
+                f"│   └── labels/  # or labels-1000-1000, etc.\n"
+                f"│       └── *.{self.gt_format}\n"
+                f"└── {self.label_map_file}\n\n"
+                + "="*70 + "\n"
+                "See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.\n"
+                + "="*70 + "\n"
+            )
+            raise FileNotFoundError(error_message)
+        
+        self.logger.info(f"✓ Dataset structure validated successfully")
+        self.logger.info(f"  Split: {self.split}")
+        self.logger.info(f"  Images: {images_path}")
+        self.logger.info(f"  Labels: {label_path}")
+
 
     def _load_label_map(self) -> None:
         """Load nuclei type labels from label_map.yaml or dataset_config.yaml"""
