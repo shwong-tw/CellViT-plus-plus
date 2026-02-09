@@ -563,6 +563,9 @@ For visualization of labels and data loading process, refer to our example noteb
 > **New to evaluation?** See our comprehensive [Evaluation Guide](docs/EVALUATION_GUIDE.md) for detailed instructions and troubleshooting.
 
 > [!IMPORTANT]
+> **🚀 HOW TO RUN EVALUATION?** See [How to Run Segmentation Evaluation](docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md) for **EXACT commands** and all required arguments!
+
+> [!IMPORTANT]
 > **⭐ QUICK ANSWER: Segmentation dataset with per-class F1 scores?**
 > See [Direct Answer Guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md) for step-by-step instructions!
 

@@ -35,6 +35,13 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 
 ## Quick Links
 
+### 🚀 **HOW TO RUN THE SCRIPT** ⭐
+**Need to run evaluation NOW?** → [**How to Run Segmentation Evaluation**](HOW_TO_RUN_SEGMENTATION_EVALUATION.md)
+- Complete command examples
+- All required arguments explained
+- Common errors and solutions
+- Step-by-step workflow
+
 ### ⭐ Direct Answer for Segmentation Dataset
 **Most asked question** → [**Direct Answer: Segmentation Evaluation**](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)
 
@@ -78,7 +85,21 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 **Reading time**: 10 minutes
 
-### DIRECT_ANSWER_SEGMENTATION_EVALUATION.md (⭐ NEW!)
+### HOW_TO_RUN_SEGMENTATION_EVALUATION.md (⭐ NEW! ESSENTIAL)
+**Best for**: Anyone who needs to actually RUN the evaluation script
+
+**Contains**:
+- **EXACT command to run** with all required arguments
+- Complete example with real paths
+- Every argument explained with examples
+- Common errors and how to fix them
+- Understanding the output (console + JSON)
+- Step-by-step workflow from training to evaluation
+- Quick reference section
+
+**Reading time**: 15-20 minutes (or 2 minutes if you just need the command)
+
+### DIRECT_ANSWER_SEGMENTATION_EVALUATION.md (⭐)
 **Best for**: Segmentation datasets WITH tissue types - Direct answer to common question
 
 **Contains**:

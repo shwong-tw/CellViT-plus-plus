@@ -18,6 +18,12 @@
 
 ---
 
+## 🚀 QUICK LINK: [Complete Usage Guide →](HOW_TO_RUN_SEGMENTATION_EVALUATION.md)
+
+**If you just want to run the script NOW**, see the detailed usage guide with complete examples and troubleshooting.
+
+---
+
 ## Quick Start
 
 ### Step 1: Verify Your Dataset Structure
