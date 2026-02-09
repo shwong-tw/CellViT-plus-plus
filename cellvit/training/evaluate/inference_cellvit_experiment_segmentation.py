@@ -196,24 +196,27 @@ class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
             )
         
         if errors:
-            error_message = (
-                "\n" + "="*70 + "\n"
-                "🛑 Dataset Structure Validation Failed\n"
-                "="*70 + "\n\n"
-                + "\n\n".join(errors) + "\n\n"
-                + "="*70 + "\n"
-                "Expected dataset structure:\n"
-                f"{self.dataset_path}/\n"
-                f"├── {self.split}/\n"
-                f"│   ├── images/\n"
-                f"│   │   └── *.png, *.jpg\n"
-                f"│   └── labels/  # or labels-1000-1000, etc.\n"
-                f"│       └── *.{self.gt_format}\n"
-                f"└── {self.label_map_file}\n\n"
-                + "="*70 + "\n"
-                "See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.\n"
-                + "="*70 + "\n"
-            )
+            error_message = f"""
+{'='*70}
+🛑 Dataset Structure Validation Failed
+{'='*70}
+
+{chr(10).join(errors)}
+
+{'='*70}
+Expected dataset structure:
+{self.dataset_path}/
+├── {self.split}/
+│   ├── images/
+│   │   └── *.png, *.jpg
+│   └── labels/  # or labels-1000-1000, etc.
+│       └── *.npy or *.mat
+└── {self.label_map_file}
+
+{'='*70}
+See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
+{'='*70}
+"""
             raise FileNotFoundError(error_message)
         
         self.logger.info(f"✓ Dataset structure validated successfully")

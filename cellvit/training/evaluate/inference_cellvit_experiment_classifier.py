@@ -248,16 +248,18 @@ class CellViTClassifierInferenceExperiment(ABC):
             )
         
         if errors:
-            error_message = (
-                "\n" + "="*70 + "\n"
-                "🛑 Path Validation Failed\n"
-                "="*70 + "\n\n"
-                + "\n\n".join(errors) + "\n\n"
-                + "="*70 + "\n"
-                "Please fix the above issues and try again.\n"
-                "See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for guidance.\n"
-                + "="*70 + "\n"
-            )
+            error_message = f"""
+{'='*70}
+🛑 Path Validation Failed
+{'='*70}
+
+{chr(10).join(errors)}
+
+{'='*70}
+Please fix the above issues and try again.
+See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for guidance.
+{'='*70}
+"""
             raise FileNotFoundError(error_message)
 
     def _create_inference_directory(self, comment: str) -> Path:
