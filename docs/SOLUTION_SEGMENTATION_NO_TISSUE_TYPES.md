@@ -12,7 +12,7 @@
 
 **GOOD NEWS:** We now have a dedicated script for nuclei-only segmentation datasets!
 
-**USE THIS SCRIPT:** `inference_cellvit_experiment_nuclei_segmentation.py`
+**USE THIS SCRIPT:** `inference_cellvit_experiment_segmentation.py`
 
 **WHY:** This script is specifically designed for segmentation datasets with only nuclei classes (no tissue types required).
 
@@ -51,7 +51,7 @@ This file defines your nuclei classes:
 ### Step 3: Run the Evaluation
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
   --logdir /path/to/your/training/run \
   --cellvit_path /path/to/cellvit/model.pth \
   --dataset_path /path/to/your/dataset \
@@ -120,7 +120,7 @@ Results saved to `{logdir}/test_results/inference_results.json`:
 If your labels are in .mat format instead of .npy:
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
   --logdir /path/to/your/training/run \
   --cellvit_path /path/to/cellvit/model.pth \
   --dataset_path /path/to/your/dataset \
@@ -135,7 +135,7 @@ python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmenta
 If your label map file has a different name:
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
   --logdir /path/to/your/training/run \
   --cellvit_path /path/to/cellvit/model.pth \
   --dataset_path /path/to/your/dataset \
@@ -149,7 +149,7 @@ python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmenta
 If you used stain normalization during training:
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
   --logdir /path/to/your/training/run \
   --cellvit_path /path/to/cellvit/model.pth \
   --dataset_path /path/to/your/dataset \
@@ -190,7 +190,7 @@ python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmenta
 ### Command to Run
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_nuclei_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
   --logdir ./logs/my_epithelial_training_2024_01_15 \
   --cellvit_path ./models/cellvit_sam_h.pth \
   --dataset_path /data/my_nuclei_dataset \
@@ -279,7 +279,7 @@ The script auto-detects common folder names. If yours is different, it will show
 
 **For segmentation datasets WITHOUT tissue types:**
 
-1. **Use:** `inference_cellvit_experiment_nuclei_segmentation.py`
+1. **Use:** `inference_cellvit_experiment_segmentation.py`
 2. **Requires:** Only nuclei type labels (no tissue types needed)
 3. **Provides:** Per-class F1 scores for each nuclei type
 4. **Benefits:** Clean, generic, production-ready

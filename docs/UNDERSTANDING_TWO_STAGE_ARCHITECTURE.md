@@ -315,7 +315,7 @@ For classification, using pretrained CellViT is recommended.
 
 **Command:**
 ```bash
-python3 inference_cellvit_experiment_nuclei_segmentation.py \
+python3 inference_cellvit_experiment_segmentation.py \
   --cellvit_path /home/user/models/CellViT-256-x40-AMP.pth \
   --logdir /home/user/experiments/my_classifier_training \
   --checkpoint_name model_best.pth \
