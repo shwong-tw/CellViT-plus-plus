@@ -6,9 +6,14 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 
 **"My training dataset is with segmentation annotation. I've done the retraining. Which file do I use to run evaluation on test dataset and get per-class F1 scores?"**
 
-→ **[DIRECT ANSWER: Click Here](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)** ←
+### Step 1: Do you have tissue type labels?
 
-**TL;DR:** Use `inference_cellvit_experiment_pannuke.py` - it already provides per-class F1 scores!
+- **NO (only nuclei classes)** → [**Solution for Segmentation WITHOUT Tissue Types**](SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md) ← Most common!
+- **YES (both tissue and nuclei types)** → [**Direct Answer for Segmentation WITH Tissue Types**](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)
+
+**TL;DR:**
+- Only nuclei: Add dummy tissue type to use PanNuke script, or create custom evaluation
+- With tissue: Use `inference_cellvit_experiment_pannuke.py` directly
 
 ---
 
@@ -54,14 +59,27 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ## Document Overview
 
+### SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md (⭐ NEW! - Most Requested)
+**Best for**: Segmentation datasets with ONLY nuclei classes (no tissue types)
+
+**Contains**:
+- Two practical solutions (dummy tissue type OR custom script)
+- Step-by-step walkthrough with examples
+- Quick diagnostic to determine which approach
+- Full example with dataset_config.yaml
+- Troubleshooting common errors
+
+**Reading time**: 10 minutes
+
 ### DIRECT_ANSWER_SEGMENTATION_EVALUATION.md (⭐ NEW!)
-**Best for**: Direct answer to the most common question
+**Best for**: Segmentation datasets WITH tissue types - Direct answer to common question
 
 **Contains**:
 - Step-by-step command to run
 - Expected output with per-class F1 scores
 - Troubleshooting common issues
 - Quick verification checklist
+- Now includes check for tissue types
 
 **Reading time**: 5 minutes
 

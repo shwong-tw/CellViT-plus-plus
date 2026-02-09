@@ -580,10 +580,13 @@ Evaluation depends on your annotation format. You can use your algorithm for inf
 Both scripts calculate classification metrics (F1, Precision, Recall, AUROC - both global and **per-class**) and detection quality metrics. The CLI can be explored by running with `--help`. Be aware to hand over the correct input shape as a list of arguments (height, width).
 
 **For NumPy mask annotations (SegmentationDataset):**
-If you have NumPy instance masks with nuclei type labels, use dataset-specific evaluation scripts:
-- **⭐ Most common**: `inference_cellvit_experiment_pannuke.py` - provides **per-class F1 scores** ([direct answer guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md))
-- CoNSeP benchmark only: `inference_cellvit_experiment_consep.py` - also provides **per-class F1 scores**
-- Other benchmarks: Lizard, MoNuSeg, etc. - see scripts in [`./cellvit/training/evaluate`](cellvit/training/evaluate)
+If you have NumPy instance masks with nuclei type labels:
+
+**⚠️ Important:** Check if you have tissue type labels!
+- **Only nuclei classes (no tissue types)?** → See [Solution Guide](docs/SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md)
+- **Both tissue types and nuclei types?** → Use `inference_cellvit_experiment_pannuke.py` - provides **per-class F1 scores** ([guide](docs/DIRECT_ANSWER_SEGMENTATION_EVALUATION.md))
+- **CoNSeP benchmark only?** → Use `inference_cellvit_experiment_consep.py` - also provides **per-class F1 scores**
+- **Other benchmarks?** → Lizard, MoNuSeg, etc. - see scripts in [`./cellvit/training/evaluate`](cellvit/training/evaluate)
 
 **See also:**
 - [Segmentation Evaluation Quickstart](docs/SEGMENTATION_EVALUATION_QUICKSTART.md) - Quick guide for segmentation datasets

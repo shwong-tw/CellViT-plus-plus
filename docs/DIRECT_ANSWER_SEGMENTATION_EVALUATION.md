@@ -4,7 +4,25 @@
 
 > "My training dataset is with segmentation annotation. I've done the retraining. Now which is the file I use to run evaluation on test dataset and provides per-class F1 score apart from original avg F1 score?"
 
-## Direct Answer
+## ⚠️ IMPORTANT: Do You Have Tissue Types?
+
+**STOP!** Before proceeding, answer this question:
+
+**Does your dataset have tissue type labels?**
+- **Tissue types** = different tissue categories (e.g., breast, colon, prostate)
+- **Nuclei types** = different cell types (e.g., tumor, immune, stromal)
+
+### 🔴 If you have ONLY nuclei classes (NO tissue types):
+→ **[Click here for your solution](SOLUTION_SEGMENTATION_NO_TISSUE_TYPES.md)** ←
+
+This is common! Many datasets only have cell type labels without tissue classification.
+
+### 🟢 If you have BOTH tissue types AND nuclei types:
+→ Continue reading below
+
+---
+
+## Direct Answer (For Datasets WITH Tissue Types)
 
 **USE THIS SCRIPT:** `inference_cellvit_experiment_pannuke.py`
 
