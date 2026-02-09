@@ -58,6 +58,7 @@ class CellViTClassifierInferenceExperiment(ABC):
         normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
         gpu (int, optional): GPU to use. Defaults to 0.
         comment (str, optional): Comment for storing. Defaults to None.
+        checkpoint_name (str, optional): Name of the checkpoint file to load. Defaults to "model_best.pth".
 
     Attributes:
         logger (Logger): Logger for the experiment
@@ -117,6 +118,7 @@ class CellViTClassifierInferenceExperiment(ABC):
         normalize_stains: bool = False,
         gpu: int = 0,
         comment: str = None,
+        checkpoint_name: str = "model_best.pth",
     ) -> None:
         self.logger: Logger
         self.model: nn.Module
@@ -139,7 +141,7 @@ class CellViTClassifierInferenceExperiment(ABC):
 
         self.logdir = Path(logdir)
         self.comment = comment
-        self.model_path = self.logdir / "checkpoints" / "model_best.pth"
+        self.model_path = self.logdir / "checkpoints" / checkpoint_name
         self.cellvit_path = Path(cellvit_path)
         self.dataset_path = Path(dataset_path)
         self.normalize_stains = normalize_stains

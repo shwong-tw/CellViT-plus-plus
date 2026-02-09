@@ -30,13 +30,21 @@ python3 ./cellvit/training/evaluate/inference_cellvit_experiment_pannuke.py \
 **Use:** `inference_cellvit_experiment_consep.py`
 
 **When:**
-- Your dataset has only nuclei types (no tissue types)
-- Simpler structure than PanNuke
+- Your dataset structure matches the **CoNSeP benchmark dataset** exactly
+- You have only nuclei types (no tissue types)
+- You're evaluating on the CoNSeP dataset itself
+
+**⚠️ IMPORTANT:** This script is specifically for the CoNSeP benchmark dataset. 
+If you have a custom segmentation dataset without tissue types, you may need to:
+- Create a custom evaluation script based on this one
+- Or adapt your dataset to match CoNSeP structure
 
 **Command:**
 ```bash
 python3 ./cellvit/training/evaluate/inference_cellvit_experiment_consep.py \
-  --run_dir /path/to/your/training/run \
+  --logdir /path/to/your/training/run \
+  --dataset_path /path/to/consep/dataset \
+  --cellvit_path /path/to/cellvit/model \
   --checkpoint_name model_best.pth \
   --gpu 0
 ```

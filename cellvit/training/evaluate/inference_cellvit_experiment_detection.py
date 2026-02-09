@@ -83,6 +83,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
         gpu (int, optional): GPU to use. Defaults to 0.
         comment (str, optional): Comment for storing. Defaults to None.
+        checkpoint_name (str, optional): Name of the checkpoint file to load. Defaults to "model_best.pth".
 
     Additional Attributes (besides the ones from the parent class):
         input_shape (List[int]): Input shape of images before beeing feed to the model.
@@ -117,6 +118,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         normalize_stains: bool = False,
         gpu: int = 0,
         comment: str = None,
+        checkpoint_name: str = "model_best.pth",
     ) -> None:
         assert len(input_shape) == 2, "Input shape must havea length of 2."
         for in_sh in input_shape:
@@ -129,6 +131,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             normalize_stains=normalize_stains,
             gpu=gpu,
             comment=comment,
+            checkpoint_name=checkpoint_name,
         )
 
     def _load_inference_transforms(
@@ -918,6 +921,13 @@ class CellViTInfExpDetectionParser:
             "--cellvit_path", type=str, help="Path to the Cellvit model"
         )
         parser.add_argument(
+            "--checkpoint_name",
+            type=str,
+            default="model_best.pth",
+            help="Name of the checkpoint. Either 'model_best.pth', 'latest_checkpoint.pth' "
+            "or one of the intermediate checkpoint names, e.g., 'checkpoint_100.pth'",
+        )
+        parser.add_argument(
             "--normalize_stains",
             action="store_true",
             help="If stains should be normalized for inference",
@@ -950,5 +960,6 @@ if __name__ == "__main__":
         normalize_stains=configuration["normalize_stains"],
         gpu=configuration["gpu"],
         input_shape=configuration["input_shape"],
+        checkpoint_name=configuration["checkpoint_name"],
     )
     experiment.run_inference()

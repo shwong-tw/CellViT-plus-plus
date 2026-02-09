@@ -91,10 +91,22 @@ CellViT++ provides several evaluation scripts in `./cellvit/training/evaluate/`:
 
 For NumPy mask annotations without tissue types:
 
-**`inference_cellvit_experiment_consep.py`**: For CoNSeP-style datasets (nuclei types only, no tissue types)
-- **✅ Also provides per-class F1 scores**
+**`inference_cellvit_experiment_consep.py`**: 
+- Specifically designed for the **CoNSeP benchmark dataset**
+- For nuclei types only (no tissue types)
+- **⚠️ Not generic** - requires CoNSeP dataset structure
+- **✅ Provides per-class F1 scores**
+- Now supports `--checkpoint_name` parameter
 
-Scripts like `inference_cellvit_experiment_lizard.py`, etc., are designed for specific benchmark datasets with their evaluation protocols.
+**When to use:**
+- ✅ You're evaluating on the CoNSeP benchmark dataset
+- ❌ NOT for arbitrary custom segmentation datasets
+
+**For custom segmentation datasets:**
+- If you have tissue types → Use `inference_cellvit_experiment_pannuke.py`
+- If no tissue types → May need to create a custom evaluation script or adapt dataset structure
+
+Scripts like `inference_cellvit_experiment_lizard.py`, `inference_cellvit_experiment_monuseg.py`, etc., are designed for specific benchmark datasets with their evaluation protocols.
 
 > 📖 **For segmentation datasets:** See [SEGMENTATION_EVALUATION_QUICKSTART.md](SEGMENTATION_EVALUATION_QUICKSTART.md) for details on per-class metrics.
 

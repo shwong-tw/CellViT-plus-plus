@@ -5,6 +5,34 @@
 # Institute for Artifical Intelligence in Medicine,
 # University Medicine Essen
 
+"""
+CoNSeP-specific evaluation script.
+
+⚠️  IMPORTANT: This script is designed specifically for the CoNSeP dataset
+    (Colorectal Nuclear Segmentation and Phenotypes) benchmark.
+
+    If you trained a CUSTOM CLASSIFIER using train_cell_classifier_head.py,
+    you should use one of these instead:
+        - For CSV annotations (DetectionDataset):
+            * inference_cellvit_custom_classifier.py (recommended, easier)
+            * inference_cellvit_experiment_detection.py (full-featured)
+        
+        - For NumPy segmentation masks (SegmentationDataset):
+            * inference_cellvit_experiment_pannuke.py (if you have tissue types)
+            * This script ONLY if your dataset structure matches CoNSeP exactly
+
+    For understanding evaluation scripts and choosing the right one:
+        - See docs/EVALUATION_GUIDE.md
+        - See docs/SEGMENTATION_EVALUATION_QUICKSTART.md
+        - See docs/TERMINOLOGY_GUIDE.md
+
+This script evaluates models on datasets with:
+    - CoNSeP-specific dataset structure
+    - Nuclei type labels (no tissue types)
+    - Instance segmentation masks
+    - Standard segmentation metrics (Dice, AJI, PQ)
+"""
+
 
 import os
 import sys
@@ -760,7 +788,7 @@ class CellViTInfExpCoNSepParser:
     def __init__(self) -> None:
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            description="Perform CellViT-Classifier inference for CoNSeP",
+            description="Perform CellViT-Classifier inference for CoNSeP dataset",
         )
         parser.add_argument(
             "--logdir",
@@ -772,6 +800,13 @@ class CellViTInfExpCoNSepParser:
         )
         parser.add_argument(
             "--cellvit_path", type=str, help="Path to the Cellvit model"
+        )
+        parser.add_argument(
+            "--checkpoint_name",
+            type=str,
+            default="model_best.pth",
+            help="Name of the checkpoint. Either 'model_best.pth', 'latest_checkpoint.pth' "
+            "or one of the intermediate checkpoint names, e.g., 'checkpoint_100.pth'",
         )
         parser.add_argument(
             "--normalize_stains",
@@ -798,5 +833,6 @@ if __name__ == "__main__":
         dataset_path=configuration["dataset_path"],
         normalize_stains=configuration["normalize_stains"],
         gpu=configuration["gpu"],
+        checkpoint_name=configuration["checkpoint_name"],
     )
     experiment_inferer.run_inference()
