@@ -42,6 +42,14 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 - Common errors and solutions
 - Step-by-step workflow
 
+### 🛑 **TROUBLESHOOTING** ⭐ NEW!
+**Getting errors?** → [**Troubleshooting Common Errors**](TROUBLESHOOTING_COMMON_ERRORS.md)
+- Fixes for incomplete log messages
+- Missing dependencies solutions
+- Path and file not found errors
+- CUDA memory issues
+- Quick reference for all common problems
+
 ### ⭐ Direct Answer for Segmentation Dataset
 **Most asked question** → [**Direct Answer: Segmentation Evaluation**](DIRECT_ANSWER_SEGMENTATION_EVALUATION.md)
 
