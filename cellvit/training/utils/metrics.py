@@ -53,18 +53,6 @@ def get_fast_aji(true, pred):
     true_id_list = list(np.unique(true))
     pred_id_list = list(np.unique(pred))
 
-    # Handle edge cases where there are no instances (only background)
-    # to prevent "ValueError: attempt to get argmax of an empty sequence"
-    if len(true_id_list) == 1 and len(pred_id_list) == 1:
-        # Both empty (only background) - perfect match, no error to penalize
-        return 1.0
-    elif len(true_id_list) == 1:
-        # No GT instances, but has predictions - all false positives
-        return 0.0
-    elif len(pred_id_list) == 1:
-        # No predicted instances, but has GT - all false negatives
-        return 0.0
-
     true_masks = [
         None,
     ]
@@ -148,18 +136,6 @@ def get_fast_aji_plus(true, pred):
     pred = np.copy(pred)
     true_id_list = list(np.unique(true))
     pred_id_list = list(np.unique(pred))
-
-    # Handle edge cases where there are no instances (only background)
-    # to prevent "ValueError: attempt to get argmax of an empty sequence"
-    if len(true_id_list) == 1 and len(pred_id_list) == 1:
-        # Both empty (only background) - perfect match, no error to penalize
-        return 1.0
-    elif len(true_id_list) == 1:
-        # No GT instances, but has predictions - all false positives
-        return 0.0
-    elif len(pred_id_list) == 1:
-        # No predicted instances, but has GT - all false negatives
-        return 0.0
 
     true_masks = [
         None,

@@ -543,6 +543,40 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         fig.savefig(str(test_result_dir / "confusion_matrix_normalized.pdf"), dpi=600)
         plt.close(fig)
 
+    def _is_problematic_patch(
+        self, gt_inst_map: np.ndarray, pred_inst_map: np.ndarray
+    ) -> Tuple[bool, str]:
+        """Check if a patch would cause issues in metric calculation
+
+        Patches are problematic if they have no instances (only background),
+        which would cause "ValueError: attempt to get argmax of an empty sequence"
+        in the AJI metric calculation.
+
+        Args:
+            gt_inst_map (np.ndarray): Ground truth instance map
+            pred_inst_map (np.ndarray): Predicted instance map
+
+        Returns:
+            Tuple[bool, str]: (is_problematic, reason)
+                - is_problematic: True if patch should be filtered
+                - reason: One of ["both_empty", "gt_empty", "pred_empty", "valid"]
+        """
+        gt_ids = np.unique(gt_inst_map)
+        pred_ids = np.unique(pred_inst_map)
+
+        # Check if only background (ID=0) exists
+        gt_has_cells = len(gt_ids) > 1
+        pred_has_cells = len(pred_ids) > 1
+
+        if not gt_has_cells and not pred_has_cells:
+            return True, "both_empty"
+        elif not gt_has_cells:
+            return True, "gt_empty"
+        elif not pred_has_cells:
+            return True, "pred_empty"
+        else:
+            return False, "valid"
+
     def _calculate_pipeline_scores(self, cell_dict: dict) -> Tuple[dict, dict, dict]:
         """Calculate the final pipeline scores
 
@@ -589,11 +623,24 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         pred_idx_offset = 0
         mpq_info_list = []
 
+        # Track filtering statistics
+        filter_stats = {
+            "total": 0,
+            "filtered": 0,
+            "both_empty": 0,
+            "gt_empty": 0,
+            "pred_empty": 0,
+            "valid": 0,
+            "filtered_patches": []
+        }
+
         gt_label_folder = self._get_gt_label_folder()
 
         for image_idx, (image_name, cells) in tqdm.tqdm(
             enumerate(cell_dict.items()), total=len(cell_dict)
         ):
+            filter_stats["total"] += 1
+            
             # Load ground truth
             gt_file_ext = "npy" if self.gt_format == "npy" else "mat"
             gt_file = gt_label_folder / f"{image_name}.{gt_file_ext}"
@@ -614,6 +661,27 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             pred_inst_map_binary = remap_label(
                 binarize(pred_map.transpose(1, 2, 0)), by_size=False
             )
+
+            # Check if patch is problematic and filter if needed
+            is_problematic, reason = self._is_problematic_patch(
+                gt_inst_map, pred_inst_map_binary
+            )
+            
+            if is_problematic:
+                filter_stats["filtered"] += 1
+                filter_stats[reason] += 1
+                filter_stats["filtered_patches"].append({
+                    "name": image_name,
+                    "reason": reason
+                })
+                self.logger.debug(
+                    f"Filtering patch {image_name}: {reason} "
+                    f"(GT cells: {len(np.unique(gt_inst_map))-1}, "
+                    f"Pred cells: {len(np.unique(pred_inst_map_binary))-1})"
+                )
+                continue
+            
+            filter_stats["valid"] += 1
 
             # Segmentation scores
             dice_1 = get_dice_1(true=gt_inst_map, pred=pred_inst_map_binary)
@@ -841,6 +909,24 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         pq_scores["mean+"]["pq"] = np.nanmean(pq_scores["mean+"]["pq"])
         pq_scores["mean+"]["dq"] = np.nanmean(pq_scores["mean+"]["dq"])
         pq_scores["mean+"]["sq"] = np.nanmean(pq_scores["mean+"]["sq"])
+
+        # Report filtering statistics
+        self.logger.info("=" * 70)
+        self.logger.info("Patch Filtering Statistics:")
+        self.logger.info(f"  Total patches: {filter_stats['total']}")
+        self.logger.info(f"  Valid patches: {filter_stats['valid']} ({filter_stats['valid']/filter_stats['total']*100:.1f}%)")
+        self.logger.info(f"  Filtered patches: {filter_stats['filtered']} ({filter_stats['filtered']/filter_stats['total']*100:.1f}%)")
+        if filter_stats['filtered'] > 0:
+            self.logger.info("  Filtered by reason:")
+            self.logger.info(f"    - Both empty (GT & Pred): {filter_stats['both_empty']}")
+            self.logger.info(f"    - GT empty only: {filter_stats['gt_empty']}")
+            self.logger.info(f"    - Predictions empty only: {filter_stats['pred_empty']}")
+            self.logger.info("  Filtered patch names:")
+            for patch_info in filter_stats['filtered_patches'][:10]:  # Show first 10
+                self.logger.info(f"    - {patch_info['name']} ({patch_info['reason']})")
+            if len(filter_stats['filtered_patches']) > 10:
+                self.logger.info(f"    ... and {len(filter_stats['filtered_patches']) - 10} more")
+        self.logger.info("=" * 70)
 
         return segmentation_scores, pq_scores, detection_scores
 
