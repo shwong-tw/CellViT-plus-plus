@@ -69,8 +69,11 @@ Quick answer → [**Segmentation Evaluation Quick Start**](SEGMENTATION_EVALUATI
 ### 📖 Need Detailed Information?
 Comprehensive guide → [**Evaluation Guide**](EVALUATION_GUIDE.md)
 
-### ❓ Confused About PanNuke Script?
-Understanding guide → [**Understanding PanNuke Script**](UNDERSTANDING_PANNUKE_SCRIPT.md)
+### ❓ Confused About Specific Scripts? ⭐ NEW!
+Understanding guides for benchmark scripts:
+- [**Understanding CoNSeP Script**](UNDERSTANDING_CONSEP_SCRIPT.md) - CoNSeP benchmark evaluation
+- [**Understanding MoNuSeg Script**](UNDERSTANDING_MONUSEG_SCRIPT.md) - Binary segmentation benchmark
+- [**Understanding PanNuke Script**](UNDERSTANDING_PANNUKE_SCRIPT.md) - Tissue + nuclei types
 
 ### 🔤 Confused About Terms?
 Terminology clarification → [**Terminology Guide**](TERMINOLOGY_GUIDE.md)
@@ -201,6 +204,33 @@ Compare all inference scripts → [**Comparison of Inference Scripts**](COMPARIS
 - Recommendations on when to use it
 
 **Reading time**: 10-15 minutes
+
+### UNDERSTANDING_CONSEP_SCRIPT.md (⭐ NEW!)
+**Best for**: Understanding the CoNSeP benchmark evaluation script
+
+**Contains**:
+- Explanation of CoNSeP dataset structure (nuclei-only, no tissue types)
+- Ground truth loading (.mat and .npy formats)
+- Metrics calculated (Dice, AJI, PQ, DQ, SQ)
+- Comparison with generic segmentation script
+- When to use CoNSeP vs generic segmentation script
+- Common issues and solutions
+
+**Reading time**: 10-15 minutes
+
+### UNDERSTANDING_MONUSEG_SCRIPT.md (⭐ NEW!)
+**Best for**: Understanding the MoNuSeg binary segmentation script
+
+**Contains**:
+- Explanation of MoNuSeg binary segmentation task
+- Standalone architecture (not inherited like others)
+- Patching mechanism for large images
+- Overlap strategy for better quality
+- Binary metrics (no classification)
+- Performance considerations
+- When to use MoNuSeg vs other scripts
+
+**Reading time**: 15-20 minutes
 
 ### UNDERSTANDING_DETECTION_VS_CLASSIFICATION_METRICS.md
 **Best for**: Understanding the phrase "without taking detection into account"
