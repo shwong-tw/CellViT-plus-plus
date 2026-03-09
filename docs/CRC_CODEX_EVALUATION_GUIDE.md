@@ -61,7 +61,7 @@ ls ./training_data/crc_codex/256x256_160x160/test/labels/*.npy
 ### 2. Run Evaluation
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_crccodex.py \
   --logdir ./log_local/2026-02-06T205610_cellvit++ \
   --cellvit_path ./checkpoints/HIPT-25/CellViT-256-x40-AMP.pth \
   --dataset_path ./training_data/crc_codex/256x256_160x160 \
@@ -246,7 +246,7 @@ print(label_dict.keys())  # Should show: dict_keys(['inst_map', 'type_map'])
 
 | Script | Use Case | Your Dataset? |
 |--------|----------|---------------|
-| `inference_cellvit_experiment_segmentation.py` | **CRC CODEX** | ✅ **YES!** |
+| `inference_cellvit_experiment_crccodex.py` | **CRC CODEX** | ✅ **YES!** |
 | `inference_cellvit_experiment_consep.py` | CoNSeP benchmark | ❌ No |
 | `inference_cellvit_experiment_pannuke.py` | PanNuke (tissue types) | ❌ No |
 | `inference_cellvit_experiment_segmentation_old.py` | Generic (backup) | Maybe |

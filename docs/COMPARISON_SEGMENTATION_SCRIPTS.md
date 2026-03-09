@@ -10,7 +10,7 @@ This guide compares the two segmentation evaluation scripts and helps you choose
 
 **For most custom datasets:** Use `inference_cellvit_experiment_segmentation_old.py` ✅
 
-**For CRC CODEX dataset specifically:** Use `inference_cellvit_experiment_segmentation.py`
+**For CRC CODEX dataset specifically:** Use `inference_cellvit_experiment_crccodex.py`
 
 ---
 
@@ -159,7 +159,7 @@ def __getitem__(self, index):
 ### Using segmentation.py (CRC CODEX)
 
 ```bash
-python3 ./cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py \
+python3 ./cellvit/training/evaluate/inference_cellvit_experiment_crccodex.py \
   --logdir ./log_local/2026-02-06T205610_cellvit++ \
   --cellvit_path ./checkpoints/HIPT-25/CellViT-256-x40-AMP.pth \
   --dataset_path ./training_data/crc_codex/256x256_160x160 \
