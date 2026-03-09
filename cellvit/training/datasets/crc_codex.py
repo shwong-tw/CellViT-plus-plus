@@ -39,6 +39,8 @@ class CRCCodexDataset(Dataset):
 
         Dataset with .npy files containing inst_map and type_map as dictionaries.
         Three nuclei types: 1 (Connective), 2 (Inflammatory), 3 (Neoplastic)
+        
+        Images are 256x256 pixel patches.
 
         Args:
             dataset_path (Union[Path, str]): Path to the dataset parent folder

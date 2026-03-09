@@ -13,12 +13,14 @@ CRC CODEX-specific evaluation script.
     
     Dataset structure:
         - Files: {images,labels}/*.npy
+        - Image size: 256x256 pixel patches
         - Labels loaded with: np.load(label, allow_pickle=True).item()
         - Contains: inst_map and type_map
         - 3 nuclei types: 1 (Connective), 2 (Inflammatory), 3 (Neoplastic)
 
 This script evaluates models on datasets with:
     - CRC CODEX-specific .npy format
+    - 256x256 pixel patches
     - Nuclei type labels (no tissue types)
     - Instance segmentation masks
     - Standard segmentation metrics (Dice, AJI, PQ)
