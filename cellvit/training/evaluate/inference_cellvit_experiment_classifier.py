@@ -377,7 +377,12 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for guidance.
             model = self._get_cellvit_architecture(
                 model_type=model_checkpoint["arch"], model_conf=cellvit_run_conf
             )
-            self.logger.info(model.load_state_dict(model_checkpoint["model_state_dict"]))
+            # Load model weights and handle any missing/unexpected keys
+            load_result = model.load_state_dict(model_checkpoint["model_state_dict"])
+            if load_result.missing_keys:
+                self.logger.warning(f"Missing keys when loading CellViT model: {load_result.missing_keys}")
+            if load_result.unexpected_keys:
+                self.logger.warning(f"Unexpected keys when loading CellViT model: {load_result.unexpected_keys}")
             cellvit_run_conf["model"]["token_patch_size"] = model.patch_size
             model = model.to(self.device)
             model.eval()
