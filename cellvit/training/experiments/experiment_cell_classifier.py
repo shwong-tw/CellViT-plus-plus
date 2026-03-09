@@ -140,6 +140,10 @@ class ExperimentCellVitClassifier(BaseExperiment):
 
         # seeding
         self.seed_run(self.default_conf["random_seed"])
+        
+        # Create generator for reproducible DataLoader sampling
+        generator = torch.Generator()
+        generator.manual_seed(self.default_conf["random_seed"])
 
         # get the config for the current run
         self.run_conf = copy.deepcopy(self.default_conf)
@@ -289,6 +293,7 @@ class ExperimentCellVitClassifier(BaseExperiment):
             shuffle=False,
             pin_memory=False,
             worker_init_fn=self.seed_worker,
+            generator=generator,  # For reproducible sampling
             collate_fn=train_dataset.collate_batch,
         )
 
@@ -298,6 +303,7 @@ class ExperimentCellVitClassifier(BaseExperiment):
             num_workers=8,
             pin_memory=True,
             worker_init_fn=self.seed_worker,
+            generator=generator,  # For reproducible sampling
             collate_fn=val_dataset.collate_batch,
         )
 
