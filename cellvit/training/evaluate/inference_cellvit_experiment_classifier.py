@@ -319,7 +319,14 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for guidance.
                 num_classes=run_conf["data"]["num_classes"],
                 drop_rate=0,
             )
-            self.logger.info(model.load_state_dict(model_checkpoint["model_state_dict"]))
+            # Load model weights
+            load_result = model.load_state_dict(model_checkpoint["model_state_dict"])
+            # Log any issues with loading
+            if load_result.missing_keys:
+                self.logger.warning(f"Missing keys when loading classifier: {load_result.missing_keys}")
+            if load_result.unexpected_keys:
+                self.logger.warning(f"Unexpected keys when loading classifier: {load_result.unexpected_keys}")
+            self.logger.info("Classifier model loaded successfully")
             model = model.to(self.device)
             model.eval()
             return model, run_conf
