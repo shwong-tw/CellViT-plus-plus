@@ -303,7 +303,16 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
 
 
     def _load_label_map(self) -> None:
-        """Load nuclei type labels from label_map.yaml or dataset_config.yaml"""
+        """Load nuclei type labels from label_map.yaml or dataset_config.yaml
+        
+        Expected format in label_map.yaml:
+            1: Connective
+            2: Inflammatory
+            3: Neoplastic
+        
+        Note: Indices should match the actual values in type_map.
+        Background (0) is added automatically if not present.
+        """
         label_map_path = self.dataset_path / self.label_map_file
 
         if not label_map_path.exists():
@@ -311,8 +320,10 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
                 f"Label map file not found at {label_map_path}. "
                 f"Using default nuclei type names."
             )
+            # Create default names matching type_map indices (1-based)
             self.nuclei_type_names = {
-                i: f"Type_{i}" for i in range(self.num_classes)
+                0: "Background",
+                **{i: f"Type_{i}" for i in range(1, self.num_classes + 1)}
             }
             return
 
@@ -321,22 +332,36 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
 
         # Handle both direct mapping (1: "Type1") and nested structure
         if isinstance(label_data, dict):
-            # Convert string keys to int and create 0-indexed dict
+            # Convert string keys to int - keep indices as-is (no shift)
             self.nuclei_type_names = {}
             for k, v in label_data.items():
                 try:
-                    idx = int(k) - 1
-                    if idx >= 0:
-                        self.nuclei_type_names[idx] = v
+                    idx = int(k)
+                    self.nuclei_type_names[idx] = v
                 except (ValueError, TypeError):
                     self.logger.warning(f"Skipping invalid label key: {k}")
+            
+            # Add background at 0 if not present
+            if 0 not in self.nuclei_type_names:
+                self.nuclei_type_names[0] = "Background"
+            
+            # Validate that we have labels for expected range
+            expected_indices = set(range(1, self.num_classes + 1))
+            actual_indices = set(self.nuclei_type_names.keys()) - {0}
+            
+            if expected_indices != actual_indices:
+                self.logger.warning(
+                    f"Label map indices {actual_indices} don't match expected range {expected_indices}. "
+                    f"Some metrics may be incorrect."
+                )
         else:
             self.logger.warning(
                 f"Unexpected label map format in {label_map_path}. "
                 f"Using default nuclei type names."
             )
             self.nuclei_type_names = {
-                i: f"Type_{i}" for i in range(self.num_classes)
+                0: "Background",
+                **{i: f"Type_{i}" for i in range(1, self.num_classes + 1)}
             }
 
         self.logger.info(f"Loaded nuclei type labels: {self.nuclei_type_names}")
