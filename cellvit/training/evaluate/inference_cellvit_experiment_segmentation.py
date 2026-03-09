@@ -908,8 +908,11 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         }
         scores = {}
 
+        # Use CellViT model's number of nuclei types for postprocessing
+        # (NOT the classifier's num_classes, which may be different)
+        cellvit_num_types = self.cellvit_model.num_nuclei_classes
         postprocessor = DetectionCellPostProcessorCupy(
-            wsi=None, nr_types=self.num_classes + 1
+            wsi=None, nr_types=cellvit_num_types
         )
         cellvit_dl = DataLoader(
             self.inference_dataset,
