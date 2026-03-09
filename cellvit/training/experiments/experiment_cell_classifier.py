@@ -181,8 +181,10 @@ class ExperimentCellVitClassifier(BaseExperiment):
             )
             self.overwrite_sweep_values(self.run_conf, run.config)
         else:
+            # Include run_id to ensure unique directory names even if runs start at same second
             self.run_conf["logging"]["log_dir"] = str(
-                Path(self.default_conf["logging"]["log_dir"]) / self.run_name
+                Path(self.default_conf["logging"]["log_dir"]) 
+                / f"{self.run_name}_{self.run_conf['logging']['run_id']}"
             )
 
         # update wandb
