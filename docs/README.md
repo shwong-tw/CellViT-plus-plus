@@ -48,6 +48,13 @@ This directory contains comprehensive documentation for evaluating custom CellVi
 - Missing dependencies solutions
 - Path and file not found errors
 - CUDA memory issues
+
+### 📊 **SCRIPT COMPARISON** ⭐ NEW!
+**Which inference script to use?** → [**Comparison of All Inference Scripts**](COMPARISON_INFERENCE_SCRIPTS.md)
+- Overview of all 14 inference scripts
+- Similarities and differences analysis
+- Code duplication patterns
+- Guidance on choosing the right script
 - Quick reference for all common problems
 
 ### ⭐ Direct Answer for Segmentation Dataset
@@ -76,6 +83,9 @@ Detailed explanation → [**Detection vs Classification Metrics**](UNDERSTANDING
 
 ### 📋 Developer Reference
 Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
+
+### 📊 Script Comparison
+Compare all inference scripts → [**Comparison of Inference Scripts**](COMPARISON_INFERENCE_SCRIPTS.md)
 
 ---
 
@@ -266,6 +276,9 @@ Summary of changes → [**Evaluation Summary**](EVALUATION_SUMMARY.md)
 
 ### Scenario 8: I want to understand all the metrics
 → See metrics section in [EVALUATION_GUIDE.md](EVALUATION_GUIDE.md#understanding-the-metrics)
+
+### Scenario 9: Which inference script should I use? What are the differences?
+→ Read [COMPARISON_INFERENCE_SCRIPTS.md](COMPARISON_INFERENCE_SCRIPTS.md) ⭐ NEW!
 
 ---
 
