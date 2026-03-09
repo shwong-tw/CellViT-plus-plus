@@ -38,6 +38,75 @@ sys.path.append(project_root)
 project_root = os.path.dirname(os.path.abspath(project_root))
 sys.path.append(project_root)
 
+
+def check_dependencies():
+    """Check if required packages are installed and provide installation instructions."""
+    missing_packages = []
+    
+    # Try importing each critical package
+    try:
+        import cv2
+    except ImportError:
+        missing_packages.append(('cv2', 'opencv-python'))
+    
+    try:
+        import torch
+    except ImportError:
+        missing_packages.append(('torch', 'torch torchvision'))
+    
+    try:
+        import yaml
+    except ImportError:
+        missing_packages.append(('yaml', 'pyyaml'))
+    
+    try:
+        import tqdm
+    except ImportError:
+        missing_packages.append(('tqdm', 'tqdm'))
+    
+    try:
+        import sklearn
+    except ImportError:
+        missing_packages.append(('sklearn', 'scikit-learn'))
+    
+    try:
+        import torchmetrics
+    except ImportError:
+        missing_packages.append(('torchmetrics', 'torchmetrics'))
+    
+    try:
+        import pycm
+    except ImportError:
+        missing_packages.append(('pycm', 'pycm'))
+    
+    if missing_packages:
+        print("=" * 70)
+        print("🛑 Missing Required Dependencies")
+        print("=" * 70)
+        print()
+        print("The following Python packages are required but not installed:")
+        print()
+        for module_name, package_name in missing_packages:
+            print(f"   ❌ {module_name} (install with: pip install {package_name})")
+        print()
+        print("=" * 70)
+        print("To install all missing packages, run:")
+        print()
+        packages_to_install = ' '.join([pkg for _, pkg in missing_packages])
+        print(f"   pip install {packages_to_install}")
+        print()
+        print("=" * 70)
+        print()
+        print("💡 Tip: For GPU support, you may need to install PyTorch with CUDA:")
+        print("   See: https://pytorch.org/get-started/locally/")
+        print()
+        print("=" * 70)
+        sys.exit(1)
+
+
+# Run dependency check before importing heavy libraries
+check_dependencies()
+
 import argparse
 import json
 from pathlib import Path
