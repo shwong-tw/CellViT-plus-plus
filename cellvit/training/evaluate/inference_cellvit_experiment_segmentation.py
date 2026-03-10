@@ -334,16 +334,25 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         if isinstance(label_data, dict):
             # Convert string keys to int - keep indices as-is (no shift)
             self.nuclei_type_names = {}
+            original_mapping = {}
             for k, v in label_data.items():
                 try:
                     idx = int(k)
                     self.nuclei_type_names[idx] = v
+                    original_mapping[idx] = v
                 except (ValueError, TypeError):
                     self.logger.warning(f"Skipping invalid label key: {k}")
+            
+            # Log what was loaded from file
+            self.logger.info(f"Loaded from {self.label_map_file}: {dict(sorted(original_mapping.items()))}")
             
             # Add background at 0 if not present
             if 0 not in self.nuclei_type_names:
                 self.nuclei_type_names[0] = "Background"
+                self.logger.info(f"Auto-added Background at index 0")
+            
+            # Log final mapping
+            self.logger.info(f"Final nuclei type labels: {dict(sorted(self.nuclei_type_names.items()))}")
             
             # Validate that we have labels for expected range
             expected_indices = set(range(1, self.num_classes + 1))
@@ -352,7 +361,8 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             if expected_indices != actual_indices:
                 self.logger.warning(
                     f"Label map indices {actual_indices} don't match expected range {expected_indices}. "
-                    f"Some metrics may be incorrect."
+                    f"Expected indices for {self.num_classes} classes: {expected_indices}. "
+                    f"Check your label_map.yaml file and ensure indices match type_map values in your data."
                 )
         else:
             self.logger.warning(
@@ -800,14 +810,15 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             paired, unpaired_true, unpaired_pred = pair_coordinates(
                 true_centroids, pred_centroids, pairing_radius
             )
+            # Calculate offsets - check list is not empty before accessing [-1]
             true_idx_offset = (
                 true_idx_offset + detection_tracker["true_inst_type_all"][-1].shape[0]
-                if image_idx != 0
+                if image_idx != 0 and len(detection_tracker["true_inst_type_all"]) > 0
                 else 0
             )
             pred_idx_offset = (
                 pred_idx_offset + detection_tracker["pred_inst_type_all"][-1].shape[0]
-                if image_idx != 0
+                if image_idx != 0 and len(detection_tracker["pred_inst_type_all"]) > 0
                 else 0
             )
             detection_tracker["true_inst_type_all"].append(true_instance_type)
