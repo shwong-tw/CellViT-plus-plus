@@ -1533,3 +1533,282 @@ This developer guide covers:
 ✅ **Best Practices** - Professional coding standards
 
 With this guide, you can confidently modify `inference_cellvit_experiment_segmentation.py` for your specific needs!
+
+---
+
+## Understanding the Index Shift in Evaluation Pipeline
+
+### Overview
+
+A critical aspect of the evaluation pipeline is the **index shift** that occurs between the ground truth data and the model predictions. This section explains why this shift exists and how it's handled.
+
+### The Index Shift Problem
+
+**User's observation:**
+- Ground truth .npy files have type_map with values: `0, 1, 2, 3`
+  - `0` = Background
+  - `1` = Connective
+  - `2` = Inflammatory
+  - `3` = Neoplastic
+- But `extracted_cells[index]["type"]` (from `_get_cellvit_result`) has values: `0, 1, 2`
+- The `_load_label_map` method uses `idx = int(k) - 1` to shift indices
+
+**Question:** Why is this shift necessary?
+
+### Root Cause: CellViT Model Design
+
+The index shift exists because **CellViT separates background detection from nuclei type classification**:
+
+1. **Binary Segmentation Task:** Detect cells vs background (separate network branch)
+2. **Type Classification Task:** Classify detected cells into nuclei types (3 classes, not 4)
+
+**Key Insight:** Background is not a "cell type" - it's the absence of cells. Therefore:
+- Ground truth uses 4-class encoding: `[0, 1, 2, 3]` (background + 3 nuclei types)
+- CellViT model uses 3-class encoding: `[0, 1, 2]` (only nuclei types)
+
+### Data Flow Transformation
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Ground Truth Data (.npy file)                           │
+│    type_map values: [0, 1, 2, 3]                           │
+│    0=Background, 1=Connective, 2=Inflammatory, 3=Neoplastic│
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. CellViT Model Processing                                │
+│    - Binary segmentation: cell vs background               │
+│    - Type classification: 3 classes [0, 1, 2]              │
+│    - Background excluded from type prediction              │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. _get_cellvit_result() - Cell Extraction                 │
+│    - Extracts individual cells from predictions            │
+│    - Skips background pixels (type_map == 0)               │
+│    - Transforms: type 1→0, 2→1, 3→2                        │
+│    - Output: extracted_cells[i]["type"] ∈ {0, 1, 2}        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. _load_label_map() - Label Loading                       │
+│    - Reads label_map.yaml: {1: 'Connective', ...}          │
+│    - Applies shift: idx = int(k) - 1                       │
+│    - Output: {0: 'Connective', 1: 'Inflammatory', ...}     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Metric Calculation                                       │
+│    - extracted_cells["type"] = 0 (model prediction)         │
+│    - nuclei_type_names[0] = "Connective" (label)            │
+│    - Perfect alignment! ✓                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Step-by-Step Explanation
+
+#### Step 1: Input Data Structure
+
+**.npy files contain two arrays:**
+```python
+{
+    'inst_map': np.array([...]),  # Instance segmentation
+    'type_map': np.array([...])   # Type classification
+}
+```
+
+**type_map values:**
+- `0` = Background (no cell)
+- `1` = Connective tissue nuclei
+- `2` = Inflammatory cell nuclei
+- `3` = Neoplastic cell nuclei
+
+#### Step 2: CellViT Model Prediction
+
+**Model outputs:**
+```python
+{
+    'nuclei_binary_map': ...,  # Cell vs background (binary)
+    'nuclei_type_map': ...     # Type classification (3 classes: 0, 1, 2)
+}
+```
+
+**Important:** The model's `nuclei_type_map` has only 3 classes because:
+- Background detection is handled separately by `nuclei_binary_map`
+- Type classification only applies to detected cells
+- Classes: 0 (Connective), 1 (Inflammatory), 2 (Neoplastic)
+
+#### Step 3: Cell Extraction in `_get_cellvit_result()`
+
+**Pseudocode showing the transformation:**
+```python
+def _get_cellvit_result(predictions, gt_data):
+    extracted_cells = []
+    
+    for each detected cell:
+        # Get ground truth type
+        gt_type = gt_data['type_map'][cell_location]
+        
+        if gt_type == 0:  # Background
+            continue  # Skip - not a real cell!
+        
+        # Get model prediction (already 0-2 from model)
+        pred_type = predictions['nuclei_type_map'][cell_location]
+        
+        extracted_cells.append({
+            'type': pred_type,  # Values: 0, 1, or 2
+            'gt_type': gt_type - 1,  # Shift GT: 1→0, 2→1, 3→2
+            ...
+        })
+    
+    return extracted_cells
+```
+
+**Key transformation:** Ground truth types `[1, 2, 3]` become `[0, 1, 2]` to match model output.
+
+#### Step 4: Label Loading in `_load_label_map()`
+
+**label_map.yaml structure:**
+```yaml
+1: Connective      # Original ground truth type value
+2: Inflammatory    # Original ground truth type value
+3: Neoplastic      # Original ground truth type value
+```
+
+**Code (line 335-345):**
+```python
+def _load_label_map(self):
+    # Load YAML file
+    label_data = yaml.safe_load(open(label_map_path))
+    
+    # Apply index shift
+    self.nuclei_type_names = {}
+    for k, v in label_data.items():
+        idx = int(k) - 1  # Shift: 1→0, 2→1, 3→2
+        self.nuclei_type_names[idx] = v
+    
+    # Result: {0: 'Connective', 1: 'Inflammatory', 2: 'Neoplastic'}
+```
+
+**Why shift here?**
+- YAML keys `[1, 2, 3]` correspond to original ground truth type_map values
+- But extracted_cells have types `[0, 1, 2]` (shifted by cell extraction)
+- We need to align labels with the shifted cell types
+
+#### Step 5: Metric Calculation Alignment
+
+**Perfect alignment achieved:**
+
+| Original GT | After Shift | Model Output | Label Index | Label Name |
+|-------------|-------------|--------------|-------------|------------|
+| 1 (Connective) | 0 | 0 | 0 | Connective |
+| 2 (Inflammatory) | 1 | 1 | 1 | Inflammatory |
+| 3 (Neoplastic) | 2 | 2 | 2 | Neoplastic |
+
+**In code:**
+```python
+for cell in extracted_cells:
+    pred_type = cell["type"]  # Values: 0, 1, or 2
+    label = self.nuclei_type_names[pred_type]  # Gets correct label
+```
+
+### Why This Design?
+
+This separation of concerns is standard in medical image analysis:
+
+1. **Binary Segmentation** (Cell Detection)
+   - Easier problem: Find all cells
+   - High confidence required
+   - Separate loss function and optimization
+
+2. **Multi-Class Classification** (Type Assignment)
+   - Only for detected cells
+   - More complex decision
+   - Focused on type discrimination
+
+**Benefits:**
+- Better training dynamics (separate objectives)
+- More interpretable failures (detection vs classification)
+- Matches medical annotation process (first outline cells, then classify)
+
+### Common Pitfall: Forgetting the Shift
+
+**❌ Without index shift in `_load_label_map`:**
+```python
+idx = int(k)  # No shift: {1: 'Connective', 2: 'Inflammatory', 3: 'Neoplastic'}
+
+# Problem:
+extracted_cells[0]["type"] = 0  # Model says Connective
+nuclei_type_names[0] = KeyError!  # No key 0!
+nuclei_type_names[1] = "Connective"  # Wrong mapping!
+```
+
+**✅ With index shift:**
+```python
+idx = int(k) - 1  # Shift: {0: 'Connective', 1: 'Inflammatory', 2: 'Neoplastic'}
+
+# Success:
+extracted_cells[0]["type"] = 0  # Model says Connective
+nuclei_type_names[0] = "Connective"  # Correct! ✓
+```
+
+### Code References
+
+**Cell extraction:** Lines 895-945 in `inference_cellvit_experiment_segmentation.py`
+```python
+def _get_cellvit_result(self, model, ...):
+    # Processes predictions and extracts cells
+    # Background (type 0) is excluded
+    # Remaining types are 0-indexed in output
+    ...
+```
+
+**Label loading:** Lines 330-345 in `inference_cellvit_experiment_segmentation.py`
+```python
+def _load_label_map(self):
+    # Loads YAML and applies idx = int(k) - 1 shift
+    # Aligns with extracted cell type indices
+    ...
+```
+
+### Summary Table
+
+| Stage | Background | Connective | Inflammatory | Neoplastic |
+|-------|------------|------------|--------------|------------|
+| **Ground Truth (.npy)** | 0 | 1 | 2 | 3 |
+| **CellViT Model Output** | N/A (separate) | 0 | 1 | 2 |
+| **extracted_cells["type"]** | N/A (excluded) | 0 | 1 | 2 |
+| **label_map.yaml keys** | N/A | 1 | 2 | 3 |
+| **nuclei_type_names keys** | N/A | 0 | 1 | 2 |
+
+**The index shift (`idx = int(k) - 1`) bridges the gap between:**
+- Label file keys (1, 2, 3) ← Original ground truth encoding
+- Model output indices (0, 1, 2) ← After background exclusion
+
+This ensures that when the model predicts type `0`, we correctly map it to `"Connective"` (not to a missing key or wrong label).
+
+---
+
+### Practical Implications
+
+When working with the evaluation pipeline:
+
+1. **Label map YAML should use 1-based indices** matching original ground truth:
+   ```yaml
+   1: Connective
+   2: Inflammatory
+   3: Neoplastic
+   ```
+
+2. **Do NOT include background in label_map.yaml** - it's handled separately
+
+3. **The -1 shift in _load_label_map is essential** - removing it will break evaluation
+
+4. **Metrics are calculated on the 3-class problem** - background is not included in type-specific metrics
+
+This design allows the evaluation to properly compare ground truth (4-class with background) against predictions (3-class without background) while maintaining correct label alignment.
+
