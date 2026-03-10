@@ -550,7 +550,14 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             actual_vector=gt.detach().cpu().numpy(),
             predict_vector=predictions.detach().cpu().numpy(),
         )
-        conf_matrix.relabel(self.nuclei_type_names)
+        # Only relabel classes that are actually present in the confusion matrix
+        # to avoid "Mapping class names error" when nuclei_type_names has extra classes
+        relabel_mapping = {
+            cls: self.nuclei_type_names[cls]
+            for cls in conf_matrix.classes
+            if cls in self.nuclei_type_names
+        }
+        conf_matrix.relabel(relabel_mapping)
         conf_matrix.save_stat(
             str(test_result_dir / "confusion_matrix_summary"), summary=True
         )
