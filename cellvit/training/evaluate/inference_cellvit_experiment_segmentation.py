@@ -546,9 +546,14 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
             test_result_dir (Union[Path, str]): Path to the test result directory
         """
+        # Get all defined classes to ensure complete confusion matrix
+        # Even if some classes have zero samples in the test set
+        all_classes = sorted(self.nuclei_type_names.keys())
+        
         conf_matrix = pycm.ConfusionMatrix(
             actual_vector=gt.detach().cpu().numpy(),
             predict_vector=predictions.detach().cpu().numpy(),
+            classes=all_classes,  # Explicitly include all defined classes
         )
         # Only relabel classes that are actually present in the confusion matrix
         # to avoid "Mapping class names error" when nuclei_type_names has extra classes
