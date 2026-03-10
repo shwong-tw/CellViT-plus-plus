@@ -332,38 +332,16 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
 
         # Handle both direct mapping (1: "Type1") and nested structure
         if isinstance(label_data, dict):
-            # Convert string keys to int - keep indices as-is (no shift)
+            # Convert string keys to int and shift by -1 (map 1-based to 0-based)
             self.nuclei_type_names = {}
-            original_mapping = {}
             for k, v in label_data.items():
                 try:
-                    idx = int(k)
+                    idx = int(k) - 1
                     self.nuclei_type_names[idx] = v
-                    original_mapping[idx] = v
                 except (ValueError, TypeError):
                     self.logger.warning(f"Skipping invalid label key: {k}")
             
-            # Log what was loaded from file
-            self.logger.info(f"Loaded from {self.label_map_file}: {dict(sorted(original_mapping.items()))}")
-            
-            # Add background at 0 if not present
-            if 0 not in self.nuclei_type_names:
-                self.nuclei_type_names[0] = "Background"
-                self.logger.info(f"Auto-added Background at index 0")
-            
-            # Log final mapping
-            self.logger.info(f"Final nuclei type labels: {dict(sorted(self.nuclei_type_names.items()))}")
-            
-            # Validate that we have labels for expected range
-            expected_indices = set(range(1, self.num_classes + 1))
-            actual_indices = set(self.nuclei_type_names.keys()) - {0}
-            
-            if expected_indices != actual_indices:
-                self.logger.warning(
-                    f"Label map indices {actual_indices} don't match expected range {expected_indices}. "
-                    f"Expected indices for {self.num_classes} classes: {expected_indices}. "
-                    f"Check your label_map.yaml file and ensure indices match type_map values in your data."
-                )
+            self.logger.info(f"Loaded nuclei type labels: {self.nuclei_type_names}")
         else:
             self.logger.warning(
                 f"Unexpected label map format in {label_map_path}. "
@@ -546,14 +524,9 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
             test_result_dir (Union[Path, str]): Path to the test result directory
         """
-        # Get all defined classes to ensure complete confusion matrix
-        # Even if some classes have zero samples in the test set
-        all_classes = sorted(self.nuclei_type_names.keys())
-        
         conf_matrix = pycm.ConfusionMatrix(
             actual_vector=gt.detach().cpu().numpy(),
             predict_vector=predictions.detach().cpu().numpy(),
-            classes=all_classes,  # Explicitly include all defined classes
         )
         # Only relabel classes that are actually present in the confusion matrix
         # to avoid "Mapping class names error" when nuclei_type_names has extra classes
