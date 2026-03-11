@@ -1812,3 +1812,437 @@ When working with the evaluation pipeline:
 
 This design allows the evaluation to properly compare ground truth (4-class with background) against predictions (3-class without background) while maintaining correct label alignment.
 
+
+---
+
+## Evaluation Metrics Reference
+
+This section provides a comprehensive explanation of all metrics calculated by `inference_cellvit_experiment_segmentation.py` and saved in the output JSON files.
+
+### Output Structure
+
+The evaluation produces a JSON file (`inference_results.json`) with the following top-level structure:
+
+```json
+{
+    "cellvit_scores": {...},      // CellViT model detection metrics
+    "classifier": {...},           // Classifier prediction metrics  
+    "pipeline": {...}              // End-to-end pipeline metrics
+}
+```
+
+---
+
+### 1. CellViT Detection Metrics (`cellvit_scores`)
+
+These metrics evaluate how well CellViT detects cell nuclei (binary detection task).
+
+**Location in code:** Lines 1041-1069 in `_run_cellvit_inference()`
+**Calculation:** `cellvit/training/utils/metrics.py` - `cell_detection_scores()`
+
+#### Metrics:
+
+**F1 Score** (`F1`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `F1 = 2 × (Precision × Recall) / (Precision + Recall)`
+- **Meaning:** Harmonic mean of precision and recall, balancing both metrics
+- **Interpretation:** 
+  - 1.0 = Perfect detection
+  - 0.5 = Moderate performance
+  - 0.0 = Complete failure
+
+**Precision** (`Prec`)
+- **Range:** 0.0 to 1.0 (higher is better)  
+- **Formula:** `Precision = True Positives / (True Positives + False Positives)`
+- **Meaning:** Of all detected cells, what fraction are actually real cells
+- **Interpretation:**
+  - High precision = Few false detections (over-segmentation)
+  - Low precision = Many false detections
+
+**Recall** (`Rec`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `Recall = True Positives / (True Positives + False Negatives)`
+- **Meaning:** Of all real cells, what fraction are detected
+- **Interpretation:**
+  - High recall = Few missed cells (under-segmentation)
+  - Low recall = Many missed cells
+
+**Matching criterion:** IoU threshold (typically 0.5) - a detected cell matches ground truth if their IoU ≥ threshold
+
+---
+
+### 2. Classifier Metrics (`classifier`)
+
+These metrics evaluate the nuclei type classification accuracy.
+
+**Location in code:** Lines 1075-1126
+**Calculation:** Uses PyTorch and pycm libraries
+
+#### 2.1 Global Metrics (`classifier.global`)
+
+**Overall Accuracy** (`accuracy`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `Accuracy = Correct Predictions / Total Predictions`
+- **Meaning:** Overall fraction of correctly classified nuclei
+- **Calculation:** Line 1095 - `accuracy_score()` from scikit-learn
+
+**Per-Class Accuracy** (`per_class_accuracy`)
+- **Range:** 0.0 to 1.0 per class
+- **Meaning:** Accuracy for each nuclei type separately
+- **Calculation:** Lines 1098-1105 - Computed from confusion matrix
+
+**Confusion Matrix** (`confusion_matrix`)
+- **Structure:** NxN matrix where N = number of classes
+- **Entry [i,j]:** Number of samples with true class i predicted as class j
+- **Diagonal:** Correct predictions
+- **Off-diagonal:** Misclassifications
+- **Calculation:** Line 1109 - `confusion_matrix()` from scikit-learn
+
+#### 2.2 Per-Class Metrics (`classifier.per_class`)
+
+For each nuclei type, the following metrics are calculated:
+
+**Precision** (`precision`)
+- **Formula:** `TP / (TP + FP)` for this class
+- **Meaning:** Of all cells predicted as this type, what fraction are correct
+
+**Recall** (`recall`)  
+- **Formula:** `TP / (TP + FN)` for this class
+- **Meaning:** Of all cells of this type, what fraction are correctly identified
+
+**F1-Score** (`f1-score`)
+- **Formula:** `2 × (Precision × Recall) / (Precision + Recall)`
+- **Meaning:** Harmonic mean balancing precision and recall for this class
+
+**Support** (`support`)
+- **Meaning:** Number of cells of this type in ground truth
+- **Use:** Indicates class frequency and metric reliability
+
+**Calculation:** Lines 1111-1126 - `classification_report()` from scikit-learn
+
+---
+
+### 3. Pipeline Metrics (`pipeline`)
+
+These are the most important metrics, evaluating the complete end-to-end performance (detection + classification).
+
+**Location in code:** Lines 600-932 in `_calculate_pipeline_scores()`
+
+#### 3.1 Binary Segmentation Metrics (`pipeline.segmentation_scores.binary`)
+
+These evaluate cell vs background segmentation quality.
+
+**Dice Coefficient** (`dice`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `Dice = 2 × |A ∩ B| / (|A| + |B|)`
+  - A = predicted segmentation mask
+  - B = ground truth segmentation mask
+- **Meaning:** Overlap between predicted and ground truth binary masks
+- **Interpretation:**
+  - 1.0 = Perfect overlap
+  - 0.5 = Moderate overlap
+  - 0.0 = No overlap
+- **Calculation:** Line 696 - `get_dice_1()` from `cellvit/training/utils/metrics.py`
+- **Code reference:** `metrics.py` lines 21-47
+
+**Fast AJI** (`fast_aji`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Full name:** Aggregated Jaccard Index
+- **Formula:** `AJI = Σ|G_i ∩ P_i| / Σ|G_i ∪ P_i|`
+  - G_i = ground truth instance i
+  - P_i = best matching predicted instance
+- **Meaning:** Instance-level IoU considering all cells together
+- **Advantages:** Penalizes both over-segmentation and under-segmentation
+- **Calculation:** Line 702 - `get_fast_aji()` from `cellvit/training/utils/metrics.py`
+- **Code reference:** `metrics.py` lines 50-112
+
+**Fast AJI+** (`fast_aji_plus`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Enhancement:** Extended AJI that handles unmatched instances better
+- **Formula:** Similar to AJI but with special handling for false positives/negatives
+- **Meaning:** More robust version of AJI
+- **Calculation:** Line 703 - `get_fast_aji_plus()` from `cellvit/training/utils/metrics.py`
+- **Code reference:** `metrics.py` lines 115-205
+
+#### 3.2 Panoptic Quality Metrics (`pipeline.pq_scores`)
+
+Panoptic Quality (PQ) is a comprehensive metric combining segmentation and detection quality.
+
+**Three variants calculated:**
+1. **binary** - Overall PQ treating all cells as one class
+2. **mean** - Average PQ across nuclei types
+3. **mean+** - PQ per nuclei type (reported separately)
+
+**Panoptic Quality** (`pq`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `PQ = DQ × SQ`
+- **Meaning:** Combined measure of detection and segmentation quality
+- **Components:**
+  - Detection Quality (DQ): How well cells are detected
+  - Segmentation Quality (SQ): How well detected cells are segmented
+- **Calculation:** Lines 714-747 - `get_pq()` from `cellvit/training/utils/metrics.py`
+- **Code reference:** `metrics.py` lines 208-263
+
+**Detection Quality** (`dq`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `DQ = |TP| / (|TP| + 0.5×|FP| + 0.5×|FN|)`
+  - TP = True positives (matched cells)
+  - FP = False positives (unmatched predictions)
+  - FN = False negatives (unmatched ground truth)
+- **Meaning:** F1-score at instance level
+- **Interpretation:** How accurately the model detects cell instances
+
+**Segmentation Quality** (`sq`)
+- **Range:** 0.0 to 1.0 (higher is better)
+- **Formula:** `SQ = Average IoU of matched pairs`
+- **Meaning:** Average overlap quality of correctly detected cells
+- **Interpretation:** How precisely detected cells are segmented
+
+**Per-Type PQ** (`pq_scores.cell_types+`)
+- **Structure:** Dictionary with keys 0, 1, 2, ... for each nuclei type
+- **Content:** PQ, DQ, SQ for each specific type
+- **Use:** Identify which cell types are easy/hard to segment
+
+**Matching criterion:** IoU threshold 0.5 (default) - instances match if IoU ≥ 0.5
+
+#### 3.3 Detection Metrics (`pipeline.detection_scores`)
+
+These metrics evaluate cell detection performance with type information.
+
+**Binary Detection** (`detection_scores.binary`)
+- **F1** - Overall detection F1-score
+- **Precision** - Overall detection precision
+- **Recall** - Overall detection recall
+- **Calculation:** Lines 858-881 - Based on instance matching
+
+**Per-Type Detection** (`detection_scores.cell_types`)
+- **Structure:** Dictionary with entry for each nuclei type
+- **Metrics per type:**
+  - `f1` - F1-score for detecting this cell type
+  - `prec` - Precision for this type
+  - `rec` - Recall for this type
+- **Calculation:** Lines 883-898
+- **Matching:** Requires both IoU match AND correct type prediction
+
+---
+
+### 4. Metric Calculation Pipeline
+
+The complete flow of metric calculation:
+
+```
+1. Load Ground Truth & Predictions
+   ↓
+2. _run_cellvit_inference()
+   └─→ cellvit_scores (F1, Prec, Rec) - binary detection only
+   
+3. _run_classifier()  
+   └─→ classifier.global (accuracy, confusion matrix)
+   └─→ classifier.per_class (precision, recall, f1 per type)
+   
+4. _calculate_pipeline_scores()
+   ├─→ segmentation_scores (Dice, AJI, AJI+) - binary masks
+   ├─→ pq_scores (PQ, DQ, SQ) - instance-level, per-type
+   └─→ detection_scores (F1, Prec, Rec) - instance-level with types
+```
+
+---
+
+### 5. Understanding Metric Relationships
+
+**Detection vs Segmentation:**
+- **Detection:** Did we find the cell? (position matters)
+- **Segmentation:** How well did we outline it? (boundary matters)
+
+**Binary vs Per-Type:**
+- **Binary:** All cells treated the same (detection task)
+- **Per-Type:** Cells classified by type (classification task)
+
+**Instance-level vs Pixel-level:**
+- **Instance-level:** Metrics consider individual cell objects (AJI, PQ, detection F1)
+- **Pixel-level:** Metrics consider individual pixels (Dice, binary accuracy)
+
+**Metric Selection Guide:**
+
+Use **Dice** when:
+- You care about overall mask quality
+- Pixel-level accuracy is important
+- Simple, interpretable metric needed
+
+Use **AJI/AJI+** when:
+- Individual cell segmentation matters
+- You want to penalize over/under-segmentation
+- Comparing instance segmentation methods
+
+Use **PQ (Panoptic Quality)** when:
+- You want combined detection + segmentation metric
+- Standard benchmark comparison needed
+- Per-type performance is important
+
+Use **Detection F1** when:
+- Cell counting is the main task
+- Exact boundaries less important
+- Type-specific detection matters
+
+---
+
+### 6. Common Metric Values and Interpretation
+
+**Excellent Performance:**
+- Dice > 0.90
+- AJI > 0.75
+- PQ > 0.75
+- F1 > 0.85
+
+**Good Performance:**
+- Dice: 0.80-0.90
+- AJI: 0.60-0.75
+- PQ: 0.60-0.75
+- F1: 0.75-0.85
+
+**Moderate Performance:**
+- Dice: 0.70-0.80
+- AJI: 0.45-0.60
+- PQ: 0.45-0.60
+- F1: 0.60-0.75
+
+**Poor Performance:**
+- Dice < 0.70
+- AJI < 0.45
+- PQ < 0.45
+- F1 < 0.60
+
+**Note:** These thresholds are approximate and domain-dependent. Medical imaging typically requires higher thresholds than natural images.
+
+---
+
+### 7. Debugging Low Metrics
+
+**Low Dice but High AJI:**
+- Boundary imprecision
+- Solution: Improve segmentation refinement
+
+**High Dice but Low AJI:**
+- Over/under-segmentation issues
+- Cells merged or split incorrectly
+- Solution: Improve instance separation
+
+**Low DQ but High SQ:**
+- Missing many cells (low recall)
+- Solution: Improve detection sensitivity
+
+**High DQ but Low SQ:**
+- Detecting cells but poor boundaries
+- Solution: Improve segmentation precision
+
+**Low per-type metrics but high binary:**
+- Classification errors
+- Cells detected but wrong type
+- Solution: Improve classifier or training data
+
+**High variance across types:**
+- Class imbalance in training
+- Some types inherently harder
+- Solution: Balance dataset or use class weights
+
+---
+
+### 8. Code References
+
+**Main evaluation script:**
+- `cellvit/training/evaluate/inference_cellvit_experiment_segmentation.py`
+
+**Metric implementations:**
+- `cellvit/training/utils/metrics.py`
+  - `get_dice_1()` - Dice coefficient (lines 21-47)
+  - `get_fast_aji()` - Aggregated Jaccard Index (lines 50-112)
+  - `get_fast_aji_plus()` - Enhanced AJI (lines 115-205)
+  - `get_pq()` - Panoptic Quality (lines 208-263)
+  - `cell_detection_scores()` - Detection F1/Prec/Rec (lines 266-382)
+
+**External libraries:**
+- `scikit-learn` - Accuracy, confusion matrix, classification report
+- `pycm` - Detailed confusion matrix analysis
+- `torchmetrics` - PyTorch metric utilities
+
+---
+
+### 9. Output File Structure
+
+**inference_results.json** contains:
+
+```json
+{
+    "cellvit_scores": {
+        "F1": 0.85,
+        "Prec": 0.87,
+        "Rec": 0.83
+    },
+    "classifier": {
+        "global": {
+            "accuracy": 0.91,
+            "per_class_accuracy": {...},
+            "confusion_matrix": [[...]]
+        },
+        "per_class": {
+            "Connective": {"precision": 0.89, "recall": 0.92, "f1-score": 0.90, "support": 150},
+            "Inflammatory": {...},
+            "Neoplastic": {...}
+        }
+    },
+    "pipeline": {
+        "segmentation_scores": {
+            "binary": {
+                "dice": 0.88,
+                "fast_aji": 0.72,
+                "fast_aji_plus": 0.75
+            }
+        },
+        "pq_scores": {
+            "binary": {"pq": 0.70, "dq": 0.85, "sq": 0.82},
+            "mean": {"pq": 0.68, "dq": 0.83, "sq": 0.81},
+            "mean+": {"pq": 0.69, "dq": 0.84, "sq": 0.82},
+            "cell_types+": {
+                "0": {"pq": 0.71, "dq": 0.86, "sq": 0.83},
+                "1": {"pq": 0.67, "dq": 0.82, "sq": 0.80},
+                "2": {"pq": 0.69, "dq": 0.84, "sq": 0.82}
+            }
+        },
+        "detection_scores": {
+            "binary": {"f1": 0.84, "prec": 0.86, "rec": 0.82},
+            "cell_types": {
+                "0": {"f1": 0.85, "prec": 0.87, "rec": 0.83},
+                "1": {"f1": 0.82, "prec": 0.84, "rec": 0.80},
+                "2": {"f1": 0.83, "prec": 0.85, "rec": 0.81}
+            }
+        }
+    }
+}
+```
+
+---
+
+### 10. Best Practices
+
+**When reporting results:**
+1. Always report both detection (F1) and segmentation (AJI or PQ) metrics
+2. Include per-type metrics to show class-specific performance
+3. Report metric variance across test set to show reliability
+4. Compare against appropriate baselines
+
+**For fair comparison:**
+1. Use same IoU threshold (typically 0.5)
+2. Report on same test set
+3. Use same evaluation code version
+4. Document any preprocessing differences
+
+**For debugging:**
+1. Visualize confusion matrix to identify systematic errors
+2. Check per-class metrics for imbalanced performance
+3. Compare DQ and SQ to isolate detection vs segmentation issues
+4. Review misclassified examples manually
+
+---
+
+This comprehensive guide should help you understand, interpret, and use all metrics produced by the CellViT++ evaluation pipeline.
+
