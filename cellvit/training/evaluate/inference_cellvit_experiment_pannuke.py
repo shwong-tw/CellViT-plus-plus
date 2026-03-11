@@ -8,6 +8,28 @@
 # Institute for Artifical Intelligence in Medicine,
 # University Medicine Essen
 
+"""
+PanNuke-specific evaluation script.
+
+⚠️  IMPORTANT: This script is designed specifically for the PanNuke dataset
+    and similar segmentation datasets with tissue types and nuclei types.
+
+    If you trained a CUSTOM CLASSIFIER using train_cell_classifier_head.py,
+    you should use one of these instead:
+        - inference_cellvit_custom_classifier.py (recommended, easier)
+        - inference_cellvit_experiment_detection.py (full-featured)
+
+    For understanding this script and what needs modification:
+        - See docs/UNDERSTANDING_PANNUKE_SCRIPT.md
+        - See docs/EVALUATION_GUIDE.md
+
+This script evaluates full segmentation models on datasets with:
+    - Tissue type labels
+    - Nuclei type labels  
+    - Instance segmentation masks
+    - PQ/DQ/SQ metrics (Panoptic Quality)
+"""
+
 import argparse
 import os
 import sys

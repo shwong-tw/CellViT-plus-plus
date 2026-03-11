@@ -144,9 +144,17 @@ class OverlapCellCleaner:
                     multi = poly.buffer(0)
                     if isinstance(multi, MultiPolygon):
                         if len(multi) > 1:
-                            poly_idx = np.argmax([p.area for p in multi])
-                            poly = multi[poly_idx]
-                            poly = Polygon(poly)
+                            # Filter out invalid/empty polygons before argmax
+                            valid_polys = [(i, p) for i, p in enumerate(multi) if p.is_valid and p.area > 0]
+                            if len(valid_polys) > 0:
+                                # Get index of polygon with max area
+                                poly_idx = max(valid_polys, key=lambda x: x[1].area)[0]
+                                poly = multi[poly_idx]
+                                poly = Polygon(poly)
+                            else:
+                                # All polygons invalid, skip this cell
+                                self.logger.debug(f"All polygons in MultiPolygon invalid for cell {idx}, skipping")
+                                continue
                         else:
                             poly = multi[0]
                             poly = Polygon(poly)

@@ -5,6 +5,20 @@
 # Institute for Artifical Intelligence in Medicine,
 # University Medicine Essen
 
+"""
+Evaluation script for custom classifiers trained on detection datasets.
+
+NOTE: For a simpler interface with better validation and error messages,
+      consider using: inference_cellvit_custom_classifier.py
+
+This script evaluates classifiers trained with train_cell_classifier_head.py
+on detection datasets (CSV annotations with x, y coordinates and labels).
+
+For documentation and usage guide, see:
+    docs/EVALUATION_GUIDE.md
+    docs/EVALUATION_QUICKSTART.md
+"""
+
 import os
 import sys
 
@@ -69,6 +83,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
         gpu (int, optional): GPU to use. Defaults to 0.
         comment (str, optional): Comment for storing. Defaults to None.
+        checkpoint_name (str, optional): Name of the checkpoint file to load. Defaults to "model_best.pth".
 
     Additional Attributes (besides the ones from the parent class):
         input_shape (List[int]): Input shape of images before beeing feed to the model.
@@ -103,6 +118,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         normalize_stains: bool = False,
         gpu: int = 0,
         comment: str = None,
+        checkpoint_name: str = "model_best.pth",
     ) -> None:
         assert len(input_shape) == 2, "Input shape must havea length of 2."
         for in_sh in input_shape:
@@ -115,6 +131,7 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             normalize_stains=normalize_stains,
             gpu=gpu,
             comment=comment,
+            checkpoint_name=checkpoint_name,
         )
 
     def _load_inference_transforms(
@@ -323,17 +340,24 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
                     image_pred_dict[image_name][cell_idx + 1] = pred_dict[cell_idx + 1]
 
                 # get a paired representation
+                # This pairs detected cells with ground truth cells (within 15 pixel distance)
+                # - paired: Cells that were correctly detected (match ground truth)
+                # - unpaired_true: Ground truth cells that weren't detected (false negatives)
+                # - unpaired_pred: Detected cells that don't match ground truth (false positives)
                 paired, unpaired_true, unpaired_pred = pair_coordinates(
                     true_centroids, pred_centroids, 15
                 )
                 # paired[:, 0] -> left set -> true
                 # paired[:, 1] -> right set -> pred
+                
+                # Only add correctly detected cells (paired) to extracted_cells_matching
+                # These will be used for classification evaluation "without taking detection into account"
                 for pair in paired:
                     extracted_cells_matching.append(
                         {
                             "image": image_name,
                             "coords": pred_centroids[pair[1]],
-                            "type": cell_types[pair[0]],
+                            "type": cell_types[pair[0]],  # Ground truth type for this paired cell
                             "token": patch_token[pair[1]],
                         }
                     )
@@ -360,33 +384,58 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
 
     def _get_global_classifier_scores(
         self, predictions: torch.Tensor, probabilities: torch.Tensor, gt: torch.Tensor
-    ) -> Tuple[float, float, float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float, float, dict]:
         """Calculate global metrics for the classification head, *without* taking quality of the detection model into account
+        
+        This function evaluates PURE CLASSIFICATION PERFORMANCE by:
+        1. Only using correctly detected cells (paired with ground truth)
+        2. Ignoring false positives and false negatives from detection
+        3. Assuming perfect cell detection
+        
+        "Without taking detection into account" means:
+        - We only evaluate cells that were correctly detected (matched to ground truth)
+        - We don't penalize the classifier for cells that CellViT failed to detect
+        - We don't penalize the classifier for false positive detections
+        - We measure: "If detection were perfect, how good is the classifier?"
+        
+        This is useful for:
+        - Isolating classification performance from detection performance
+        - Debugging which component (detection vs classification) needs improvement
+        - Comparing classifier architectures independently of detection quality
 
         Args:
             predictions (torch.Tensor): Class-Predictions. Shape: Num-cells
-            probabilities (torch.Tensor): Probabilities for all classes. Shape: Shape: Num-cells x Num-classes
+                                       (only for correctly detected cells)
+            probabilities (torch.Tensor): Probabilities for all classes. Shape: Num-cells x Num-classes
+                                         (only for correctly detected cells)
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
+                              (only for correctly detected cells)
 
         Returns:
-            Tuple[float, float, float, float, float, float]:
-                * F1-Score
-                * Precision
-                * Recall
+            Tuple[float, float, float, float, float, float, dict]:
+                * F1-Score (macro average)
+                * Precision (macro average)
+                * Recall (macro average)
                 * Accuracy
-                * Auroc
-                * AP
+                * Auroc (macro average)
+                * AP (macro average)
+                * Per-class metrics dict with F1, Precision, Recall for each class
+                
+        Note:
+            For complete pipeline performance (including detection quality), 
+            see the pipeline metrics calculated in _calculate_pipeline_scores()
         """
+        # Global metrics (macro-averaged)
         auroc_func = AUROC(task="multiclass", num_classes=self.num_classes)
         acc_func = Accuracy(task="multiclass", num_classes=self.num_classes)
-        f1_func = F1Score(task="multiclass", num_classes=self.num_classes)
-        prec_func = Precision(task="multiclass", num_classes=self.num_classes)
-        recall_func = Recall(task="multiclass", num_classes=self.num_classes)
+        f1_func = F1Score(task="multiclass", num_classes=self.num_classes, average="macro")
+        prec_func = Precision(task="multiclass", num_classes=self.num_classes, average="macro")
+        recall_func = Recall(task="multiclass", num_classes=self.num_classes, average="macro")
         average_prec_func = AveragePrecision(
             task="multiclass", num_classes=self.num_classes
         )
 
-        # scores without taking detection into account
+        # Global scores without taking detection into account
         auroc_score = float(auroc_func(probabilities, gt).detach().cpu())
         acc_score = float(acc_func(predictions, gt).detach().cpu())
         f1_score = float(f1_func(predictions, gt).detach().cpu())
@@ -394,7 +443,25 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         recall_score = float(recall_func(predictions, gt).detach().cpu())
         average_prec = float(average_prec_func(probabilities, gt).detach().cpu())
 
-        return f1_score, prec_score, recall_score, acc_score, auroc_score, average_prec
+        # Per-class metrics
+        f1_func_per_class = F1Score(task="multiclass", num_classes=self.num_classes, average="none")
+        prec_func_per_class = Precision(task="multiclass", num_classes=self.num_classes, average="none")
+        recall_func_per_class = Recall(task="multiclass", num_classes=self.num_classes, average="none")
+        
+        f1_per_class = f1_func_per_class(predictions, gt).detach().cpu().numpy()
+        prec_per_class = prec_func_per_class(predictions, gt).detach().cpu().numpy()
+        recall_per_class = recall_func_per_class(predictions, gt).detach().cpu().numpy()
+        
+        # Organize per-class metrics
+        per_class_metrics = {}
+        for class_idx in range(self.num_classes):
+            per_class_metrics[class_idx] = {
+                "f1": float(f1_per_class[class_idx]),
+                "precision": float(prec_per_class[class_idx]),
+                "recall": float(recall_per_class[class_idx]),
+            }
+
+        return f1_score, prec_score, recall_score, acc_score, auroc_score, average_prec, per_class_metrics
 
     def _plot_confusion_matrix(
         self,
@@ -706,6 +773,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         )
 
         # Step 1: Extract cells with CellViT
+        # This step detects cells and creates two lists:
+        # - extracted_cells_cleaned: Only cells that match ground truth (correct detections)
+        # - extracted_cells: All detected cells (including false positives)
         with torch.no_grad():
             for _, (images, cell_gt_batch, types_batch, image_names) in tqdm.tqdm(
                 enumerate(cellvit_dl), total=len(cellvit_dl)
@@ -742,6 +812,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             scores["cellvit_scores"] = cellvit_detection_scores
 
         # Step 2: Classify Cell Tokens with the classifier, but only the cleaned version
+        # We use extracted_cells_cleaned (only correctly detected cells) to evaluate
+        # classification performance "without taking detection into account"
+        # This isolates classifier quality from detection quality
         cleaned_inference_results = self._get_classifier_result(extracted_cells_cleaned)
 
         scores["classifier"] = {}
@@ -753,16 +826,20 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             acc_score,
             auroc_score,
             ap_score,
+            per_class_metrics,
         ) = self._get_global_classifier_scores(
             predictions=cleaned_inference_results["predictions"],
             probabilities=cleaned_inference_results["probabilities"],
             gt=cleaned_inference_results["gt"],
         )
         self.logger.info(
-            "Global Scores - Without taking cell detection quality into account:"
+            "Global Classification Scores - Without taking cell detection quality into account:"
         )
         self.logger.info(
-            f"F1: {f1_score:.3} - Prec: {prec_score:.3} - Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
+            "  (Evaluated only on correctly detected cells - assumes perfect detection)"
+        )
+        self.logger.info(
+            f"Macro F1: {f1_score:.3} - Macro Prec: {prec_score:.3} - Macro Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
         )
         scores["classifier"]["global"] = {
             "F1": f1_score,
@@ -772,6 +849,21 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             "Auroc": auroc_score,
             "AP": ap_score,
         }
+        
+        # Add per-class classification metrics with class names
+        label_map = self.run_conf["data"]["label_map"]
+        label_map_int = {int(k): v for k, v in label_map.items()}
+        
+        scores["classifier"]["per_class"] = {}
+        self.logger.info("\nPer-Class Classification Metrics:")
+        self.logger.info(f"{'Class':<20} {'F1':>8} {'Precision':>12} {'Recall':>10}")
+        self.logger.info("-" * 55)
+        for class_idx, metrics in per_class_metrics.items():
+            class_name = label_map_int.get(class_idx, f"Class_{class_idx}")
+            scores["classifier"]["per_class"][class_name] = metrics
+            self.logger.info(
+                f"{class_name:<20} {metrics['f1']:>8.3f} {metrics['precision']:>12.3f} {metrics['recall']:>10.3f}"
+            )
 
         self._plot_confusion_matrix(
             predictions=cleaned_inference_results["predictions"],
@@ -780,6 +872,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
         )
 
         # Step 3: Classify Cell Tokens, but with the uncleaned version and calculate Ocelot Metrics
+        # We use extracted_cells (all detected cells, including false positives) to evaluate
+        # complete pipeline performance "with detection quality included"
+        # This reflects real-world system performance
         inference_results = self._get_classifier_result(extracted_cells)
         inference_results.pop("gt")
         cell_pred_dict = self.update_cell_dict_with_predictions(
@@ -797,12 +892,9 @@ class CellViTInfExpDetection(CellViTClassifierInferenceExperiment):
             "detection_scores_tia": detection_scores_tia,
             "scores_ocelot": scores_ocelot,
         }
-        label_map = self.run_conf["data"]["label_map"]
-        label_map = {
-            int(k): v for k, v in label_map.items()
-        }  # replace cell_type by names and jsonify
+        # Use the same label_map_int from earlier for consistency
         scores["pipeline"]["detection_scores_tia"]["cell_types"] = {
-            label_map[k]: v
+            label_map_int[k]: v
             for k, v in scores["pipeline"]["detection_scores_tia"]["cell_types"].items()
         }
         scores_json = json.dumps(scores, indent=2)
@@ -827,6 +919,13 @@ class CellViTInfExpDetectionParser:
         parser.add_argument("--dataset_path", type=str, help="Path to the dataset")
         parser.add_argument(
             "--cellvit_path", type=str, help="Path to the Cellvit model"
+        )
+        parser.add_argument(
+            "--checkpoint_name",
+            type=str,
+            default="model_best.pth",
+            help="Name of the checkpoint. Either 'model_best.pth', 'latest_checkpoint.pth' "
+            "or one of the intermediate checkpoint names, e.g., 'checkpoint_100.pth'",
         )
         parser.add_argument(
             "--normalize_stains",
@@ -861,5 +960,6 @@ if __name__ == "__main__":
         normalize_stains=configuration["normalize_stains"],
         gpu=configuration["gpu"],
         input_shape=configuration["input_shape"],
+        checkpoint_name=configuration["checkpoint_name"],
     )
     experiment.run_inference()

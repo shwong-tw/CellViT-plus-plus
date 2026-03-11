@@ -140,6 +140,10 @@ class ExperimentCellVitClassifier(BaseExperiment):
 
         # seeding
         self.seed_run(self.default_conf["random_seed"])
+        
+        # Create generator for reproducible DataLoader sampling
+        generator = torch.Generator()
+        generator.manual_seed(self.default_conf["random_seed"])
 
         # get the config for the current run
         self.run_conf = copy.deepcopy(self.default_conf)
@@ -181,8 +185,10 @@ class ExperimentCellVitClassifier(BaseExperiment):
             )
             self.overwrite_sweep_values(self.run_conf, run.config)
         else:
+            # Include run_id to ensure unique directory names even if runs start at same second
             self.run_conf["logging"]["log_dir"] = str(
-                Path(self.default_conf["logging"]["log_dir"]) / self.run_name
+                Path(self.default_conf["logging"]["log_dir"]) 
+                / f"{self.run_name}_{self.run_conf['logging']['run_id']}"
             )
 
         # update wandb
@@ -287,6 +293,7 @@ class ExperimentCellVitClassifier(BaseExperiment):
             shuffle=False,
             pin_memory=False,
             worker_init_fn=self.seed_worker,
+            generator=generator,  # For reproducible sampling
             collate_fn=train_dataset.collate_batch,
         )
 
@@ -296,6 +303,7 @@ class ExperimentCellVitClassifier(BaseExperiment):
             num_workers=8,
             pin_memory=True,
             worker_init_fn=self.seed_worker,
+            generator=generator,  # For reproducible sampling
             collate_fn=val_dataset.collate_batch,
         )
 

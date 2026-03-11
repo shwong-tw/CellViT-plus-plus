@@ -1,38 +1,53 @@
 # -*- coding: utf-8 -*-
-# CoNSeP Inference Code
+# Generic Nuclei Segmentation Dataset Inference Code
 #
 # @ Fabian Hörst, fabian.hoerst@uk-essen.de
-# Institute for Artifical Intelligence in Medicine,
+# Institute for Artificial Intelligence in Medicine,
 # University Medicine Essen
 
 """
-CoNSeP-specific evaluation script.
+Generic evaluation script for nuclei-only segmentation datasets.
 
-⚠️  IMPORTANT: This script is designed specifically for the CoNSeP dataset
-    (Colorectal Nuclear Segmentation and Phenotypes) benchmark.
+⚠️  IMPORTANT: Use this script for custom nuclei segmentation datasets that:
+    - Have a generic segmentation dataset structure (images/ and labels/ folders)
+    - Contain nuclei type labels (no tissue types)
+    - Use instance segmentation masks stored as .npy or .mat files
+    - Have a label_map.yaml or dataset_config.yaml defining nuclei types
 
-    If you trained a CUSTOM CLASSIFIER using train_cell_classifier_head.py,
-    you should use one of these instead:
-        - For CSV annotations (DetectionDataset):
-            * inference_cellvit_custom_classifier.py (recommended, easier)
-            * inference_cellvit_experiment_detection.py (full-featured)
-        
-        - For NumPy segmentation masks (SegmentationDataset):
-            * inference_cellvit_experiment_pannuke.py (if you have tissue types)
-            * This script ONLY if your dataset structure matches CoNSeP exactly
+When to use this script:
+    ✅ You have a custom nuclei segmentation dataset
+    ✅ Your dataset structure is:
+        dataset_path/
+        ├── {split_name}/  # e.g., "test", "val", "Test", etc.
+        │   ├── images/
+        │   │   └── *.png, *.jpg
+        │   └── labels/  # or "labels-1000-1000", etc.
+        │       └── *.npy or *.mat files
+        └── label_map.yaml  # or dataset_config.yaml
+    ✅ Ground truth files contain:
+        - inst_map: Instance segmentation map (H, W)
+        - type_map: Cell type map (H, W)
+    ✅ You want per-class F1, Precision, Recall metrics
+    ✅ You want segmentation metrics (Dice, AJI, PQ)
 
-    For understanding evaluation scripts and choosing the right one:
-        - See docs/EVALUATION_GUIDE.md
-        - See docs/SEGMENTATION_EVALUATION_QUICKSTART.md
-        - See docs/TERMINOLOGY_GUIDE.md
+Do NOT use this script if:
+    ❌ Your dataset has tissue types (use inference_cellvit_experiment_pannuke.py)
+    ❌ Your dataset is CoNSeP-specific (use inference_cellvit_experiment_consep.py)
+    ❌ You have CSV-based detection annotations (use inference_cellvit_custom_classifier.py)
 
-This script evaluates models on datasets with:
-    - CoNSeP-specific dataset structure
-    - Nuclei type labels (no tissue types)
-    - Instance segmentation masks
-    - Standard segmentation metrics (Dice, AJI, PQ)
+Output:
+    This script generates:
+    - Per-class F1, Precision, Recall scores for all nuclei types
+    - Binary segmentation metrics (Dice, AJI, PQ)
+    - Per-class PQ scores
+    - Confusion matrix
+    - Cell predictions as JSON files
+    - Complete inference results in JSON format
+
+For more information:
+    - See docs/EVALUATION_GUIDE.md
+    - See docs/SEGMENTATION_EVALUATION_QUICKSTART.md
 """
-
 
 import os
 import sys
@@ -45,6 +60,83 @@ sys.path.append(project_root)
 project_root = os.path.dirname(os.path.abspath(project_root))
 sys.path.append(project_root)
 
+# Check for required dependencies before importing
+def check_dependencies():
+    """Check if required packages are installed and provide installation instructions."""
+    missing_packages = []
+    installation_commands = {
+        'cv2': 'pip install opencv-python',
+        'torch': 'pip install torch torchvision',
+        'yaml': 'pip install pyyaml',
+        'tqdm': 'pip install tqdm',
+        'sklearn': 'pip install scikit-learn',
+        'torchmetrics': 'pip install torchmetrics',
+        'pycm': 'pip install pycm',
+    }
+    
+    # Try importing each critical package
+    try:
+        import cv2
+    except ImportError:
+        missing_packages.append(('cv2', 'opencv-python'))
+    
+    try:
+        import torch
+    except ImportError:
+        missing_packages.append(('torch', 'torch torchvision'))
+    
+    try:
+        import yaml
+    except ImportError:
+        missing_packages.append(('yaml', 'pyyaml'))
+    
+    try:
+        import tqdm
+    except ImportError:
+        missing_packages.append(('tqdm', 'tqdm'))
+    
+    try:
+        import sklearn
+    except ImportError:
+        missing_packages.append(('sklearn', 'scikit-learn'))
+    
+    try:
+        import torchmetrics
+    except ImportError:
+        missing_packages.append(('torchmetrics', 'torchmetrics'))
+    
+    try:
+        import pycm
+    except ImportError:
+        missing_packages.append(('pycm', 'pycm'))
+    
+    if missing_packages:
+        print("=" * 70)
+        print("🛑 Missing Required Dependencies")
+        print("=" * 70)
+        print()
+        print("The following Python packages are required but not installed:")
+        print()
+        for module_name, package_name in missing_packages:
+            print(f"   ❌ {module_name} (install with: pip install {package_name})")
+        print()
+        print("=" * 70)
+        print("To install all missing packages, run:")
+        print()
+        packages_to_install = ' '.join([pkg for _, pkg in missing_packages])
+        print(f"   pip install {packages_to_install}")
+        print()
+        print("=" * 70)
+        print()
+        print("💡 Tip: For GPU support, you may need to install PyTorch with CUDA:")
+        print("   See: https://pytorch.org/get-started/locally/")
+        print()
+        print("=" * 70)
+        sys.exit(1)
+
+# Run dependency check before importing heavy libraries
+check_dependencies()
+
 import argparse
 import json
 from pathlib import Path
@@ -56,6 +148,7 @@ import pycm
 import torch
 import torch.nn.functional as F
 import tqdm
+import yaml
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics.classification import (
@@ -66,11 +159,12 @@ from torchmetrics.classification import (
     Precision,
     Recall,
 )
+
 from cellvit.training.evaluate.inference_cellvit_experiment_classifier import (
     CellViTClassifierInferenceExperiment,
 )
 from cellvit.inference.postprocessing_cupy import DetectionCellPostProcessorCupy
-from cellvit.training.datasets.consep import CoNSePDataset
+from cellvit.training.datasets.segmentation_dataset import SegmentationDataset
 from cellvit.training.utils.metrics import (
     binarize,
     cell_detection_scores,
@@ -88,20 +182,191 @@ from scipy.io import loadmat
 from PIL import Image
 
 
-class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
+class CellViTInfExpNucleiSegmentation(CellViTClassifierInferenceExperiment):
+    """Generic Nuclei Segmentation Dataset Inference Experiment"""
+
+    def __init__(
+        self,
+        logdir: Union[Path, str],
+        cellvit_path: Union[Path, str],
+        dataset_path: Union[Path, str],
+        split: str = "test",
+        label_map_file: str = "label_map.yaml",
+        gt_format: str = "npy",
+        normalize_stains: bool = False,
+        gpu: int = 0,
+        checkpoint_name: str = "model_best.pth",
+    ):
+        """Initialize Generic Nuclei Segmentation Inference Experiment
+
+        Args:
+            logdir (Union[Path, str]): Path to the log directory with the trained head
+            cellvit_path (Union[Path, str]): Path to the CellViT model
+            dataset_path (Union[Path, str]): Path to the dataset root folder
+            split (str, optional): Name of the split to evaluate (e.g., "test", "val", "Test"). Defaults to "test".
+            label_map_file (str, optional): Name of the label map file (label_map.yaml or dataset_config.yaml). Defaults to "label_map.yaml".
+            gt_format (str, optional): Format of ground truth files ("npy" or "mat"). Defaults to "npy".
+            normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
+            gpu (int, optional): CUDA GPU id to use. Defaults to 0.
+            checkpoint_name (str, optional): Name of the checkpoint file. Defaults to "model_best.pth".
+        """
+        self.split = split
+        self.label_map_file = label_map_file
+        self.gt_format = gt_format.lower()
+        assert self.gt_format in ["npy", "mat"], "gt_format must be 'npy' or 'mat'"
+
+        super().__init__(
+            logdir=logdir,
+            cellvit_path=cellvit_path,
+            dataset_path=dataset_path,
+            normalize_stains=normalize_stains,
+            gpu=gpu,
+            checkpoint_name=checkpoint_name,
+        )
+
+        self._validate_dataset_structure()
+        self._load_label_map()
+
+    def _validate_dataset_structure(self) -> None:
+        """Validate that the dataset has the expected structure
+        
+        Raises:
+            FileNotFoundError: If dataset structure is invalid
+        """
+        errors = []
+        
+        # Check if split folder exists
+        split_path = self.dataset_path / self.split
+        if not split_path.exists():
+            errors.append(
+                f"❌ Split folder not found: {split_path}\n"
+                f"   Expected: {self.dataset_path}/{self.split}/\n"
+                f"   Available splits:\n"
+            )
+            if self.dataset_path.exists():
+                subdirs = [d.name for d in self.dataset_path.iterdir() if d.is_dir()]
+                if subdirs:
+                    for subdir in subdirs:
+                        errors.append(f"      - {subdir}")
+                else:
+                    errors.append(f"      (no subdirectories found)")
+            
+        # Check if images folder exists
+        images_path = split_path / "images"
+        if not images_path.exists():
+            errors.append(
+                f"❌ Images folder not found: {images_path}\n"
+                f"   Expected: {split_path}/images/\n"
+            )
+        
+        # Check if labels folder exists
+        label_path = self._get_gt_label_folder()
+        if not label_path.exists():
+            errors.append(
+                f"❌ Labels folder not found\n"
+                f"   Checked these locations:\n"
+                f"      - {split_path}/labels/\n"
+                f"      - {split_path}/Labels/\n"
+                f"      - {split_path}/labels-1000-1000/\n"
+                f"      - {split_path}/annotations/\n"
+                f"   Make sure your dataset has a labels folder in the split directory.\n"
+            )
+        
+        if errors:
+            error_message = f"""
+{'='*70}
+🛑 Dataset Structure Validation Failed
+{'='*70}
+
+{chr(10).join(errors)}
+
+{'='*70}
+Expected dataset structure:
+{self.dataset_path}/
+├── {self.split}/
+│   ├── images/
+│   │   └── *.png, *.jpg
+│   └── labels/  # or labels-1000-1000, etc.
+│       └── *.npy or *.mat
+└── {self.label_map_file}
+
+{'='*70}
+See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
+{'='*70}
+"""
+            raise FileNotFoundError(error_message)
+        
+        self.logger.info(f"✓ Dataset structure validated successfully")
+        self.logger.info(f"  Split: {self.split}")
+        self.logger.info(f"  Images: {images_path}")
+        self.logger.info(f"  Labels: {label_path}")
+
+
+    def _load_label_map(self) -> None:
+        """Load nuclei type labels from label_map.yaml or dataset_config.yaml
+        
+        Expected format in label_map.yaml:
+            1: Connective
+            2: Inflammatory
+            3: Neoplastic
+        
+        Note: Indices should match the actual values in type_map.
+        Background (0) is added automatically if not present.
+        """
+        label_map_path = self.dataset_path / self.label_map_file
+
+        if not label_map_path.exists():
+            self.logger.warning(
+                f"Label map file not found at {label_map_path}. "
+                f"Using default nuclei type names."
+            )
+            # Create default names matching type_map indices (1-based)
+            self.nuclei_type_names = {
+                0: "Background",
+                **{i: f"Type_{i}" for i in range(1, self.num_classes + 1)}
+            }
+            return
+
+        with open(label_map_path, "r") as f:
+            label_data = yaml.safe_load(f)
+
+        # Handle both direct mapping (1: "Type1") and nested structure
+        if isinstance(label_data, dict):
+            # Convert string keys to int and shift by -1 (map 1-based to 0-based)
+            self.nuclei_type_names = {}
+            for k, v in label_data.items():
+                try:
+                    idx = int(k) - 1
+                    self.nuclei_type_names[idx] = v
+                except (ValueError, TypeError):
+                    self.logger.warning(f"Skipping invalid label key: {k}")
+            
+            self.logger.info(f"Loaded nuclei type labels: {self.nuclei_type_names}")
+        else:
+            self.logger.warning(
+                f"Unexpected label map format in {label_map_path}. "
+                f"Using default nuclei type names."
+            )
+            self.nuclei_type_names = {
+                0: "Background",
+                **{i: f"Type_{i}" for i in range(1, self.num_classes + 1)}
+            }
+
+        self.logger.info(f"Loaded nuclei type labels: {self.nuclei_type_names}")
+
     def _load_dataset(self, transforms: Callable, normalize_stains: bool) -> Dataset:
-        """Load CoNSeP Dataset (Used split: Test)
+        """Load Generic Segmentation Dataset
 
         Args:
             transforms (Callable): Transformations
-            normalize_stains (bool): If stain normalization
+            normalize_stains (bool): If stain normalization should be applied
 
         Returns:
-            Dataset: CoNSeP Dataset
+            Dataset: Segmentation Dataset
         """
-        dataset = CoNSePDataset(
+        dataset = SegmentationDataset(
             dataset_path=self.dataset_path,
-            split="Test",
+            split=self.split,
             normalize_stains=normalize_stains,
             transforms=transforms,
         )
@@ -109,46 +374,60 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
 
         return dataset
 
+    def _get_gt_label_folder(self) -> Path:
+        """Get the ground truth label folder path
+
+        Returns:
+            Path: Path to the label folder
+        """
+        # Try common label folder names
+        possible_names = [
+            "labels",
+            "Labels",
+            "labels-1000-1000",
+            "Labels-1000-1000",
+            "annotations",
+            "Annotations",
+        ]
+
+        for name in possible_names:
+            label_path = self.dataset_path / self.split / name
+            if label_path.exists():
+                return label_path
+
+        # Default to "labels"
+        return self.dataset_path / self.split / "labels"
+
     def _load_gt_npy(
         self, test_case: Union[str, Path]
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Load ground truth instance map and type map
+        """Load ground truth instance map and type map from .npy file
 
         Args:
             test_case (Union[str, Path]): Path to test case numpy array
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Instance map and type map with merged types
+            Tuple[np.ndarray, np.ndarray]: Instance map and type map
             * np.ndarray: Instance map ordered from 1 to num_nuclei in image, shape: H,W
-            * np.ndarray: Type map, shape: H,w
+            * np.ndarray: Type map, shape: H,W
         """
         gt = np.load(test_case, allow_pickle=True)
         gt_inst_map = gt.item()["inst_map"]
         gt_inst_map = remap_label(gt_inst_map, by_size=False)
         gt_type_map = gt.item()["type_map"]
 
-        remap_label_map = {0: 0}
-        remap_label_map_tmp = self.inference_dataset.merged_nuclei_dict
-        for k, v in remap_label_map_tmp.items():
-            remap_label_map[k + 1] = v + 1
-
-        def replace_value(x):
-            return remap_label_map.get(x, x)
-
-        gt_type_map = np.vectorize(replace_value)(gt_type_map)
-
         return gt_inst_map, gt_type_map
 
     def _load_gt_mat(
         self, test_case: Union[str, Path]
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Load ground truth instance map and type map
+        """Load ground truth instance map and type map from .mat file
 
         Args:
             test_case (Union[str, Path]): Path to test case mat array
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Instance map and type map with merged types
+            Tuple[np.ndarray, np.ndarray]: Instance map and type map
             * np.ndarray: Instance map ordered from 1 to num_nuclei in image, shape: H,W
             * np.ndarray: Type map, shape: H,W
         """
@@ -157,15 +436,6 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         gt_inst_map = remap_label(gt_inst_map, by_size=False)
         gt_type_map = gt["type_map"]
 
-        remap_label_map = {0: 0}
-        remap_label_map_tmp = self.inference_dataset.merged_nuclei_dict
-        for k, v in remap_label_map_tmp.items():
-            remap_label_map[k + 1] = v + 1
-
-        def replace_value(x):
-            return remap_label_map.get(x, x)
-
-        gt_type_map = np.vectorize(replace_value)(gt_type_map)
         return gt_inst_map, gt_type_map
 
     def _load_pred_map(
@@ -174,7 +444,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         """Load prediction map from image cell dictionary
 
         Args:
-            cells (dict): cells (dict): Cell dictionary for the image
+            cells (dict): Cell dictionary for the image
             img_shape (Tuple[int]): Shape in Format (H, W)
 
         Returns:
@@ -184,8 +454,9 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             * np.ndarray: Instance map ordered from 1 to num_nuclei in image, shape: H,W
             * np.ndarray: Type map, shape: H,W
         """
-        pred_inst_map = np.zeros((1024, 1024), dtype=np.int32)
-        pred_class_map = np.zeros((1024, 1024), dtype=np.int32)
+        pred_inst_map = np.zeros(img_shape, dtype=np.int32)
+        pred_class_map = np.zeros(img_shape, dtype=np.int32)
+
         for cell_id, cell_data in cells.items():
             contour = np.array(cell_data["contour"])
             cell_type = cell_data["type"]
@@ -195,16 +466,8 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             cv2.fillPoly(pred_inst_map, [contour], cell_id)
             cv2.fillPoly(pred_class_map, [contour], cell_type + 1)
 
-        pred_inst_map = Image.fromarray(pred_inst_map)
-        pred_inst_map = pred_inst_map.resize((1000, 1000), Image.NEAREST)
-        pred_inst_map = np.array(pred_inst_map).astype(np.int32)
-
-        pred_class_map = Image.fromarray(pred_class_map)
-        pred_class_map = pred_class_map.resize((1000, 1000), Image.NEAREST)
-        pred_class_map = np.array(pred_class_map).astype(np.int32)
-
-        # TODO: Convert to 5, 1000, 1000 format
-        pred_map = np.zeros((5, 1000, 1000), dtype=np.int32)
+        # Convert to multi-class format
+        pred_map = np.zeros((self.num_classes + 1, *img_shape), dtype=np.int32)
         for class_idx in range(1, self.num_classes + 1):
             mask = pred_class_map == class_idx
             pred_map[class_idx][mask] = pred_inst_map[mask]
@@ -214,14 +477,11 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
     def _get_global_classifier_scores(
         self, predictions: torch.Tensor, probabilities: torch.Tensor, gt: torch.Tensor
     ) -> Tuple[float, float, float, float, float, float]:
-        """Calculate global metrics for the classification head, *without* taking quality of the detection model into account
-
-        As the metrics are multiclass, they mostly depend on the averaging strategy (micro, macro, weighted).
-        We stay with the default averaging strategy of the torchmetrics library, which is the micro averaging strategy.
+        """Calculate global metrics for the classification head
 
         Args:
             predictions (torch.Tensor): Class-Predictions. Shape: Num-cells
-            probabilities (torch.Tensor): Probabilities for all classes. Shape: Shape: Num-cells x Num-classes
+            probabilities (torch.Tensor): Probabilities for all classes. Shape: Num-cells x Num-classes
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
 
         Returns:
@@ -235,14 +495,13 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         """
         auroc_func = AUROC(task="multiclass", num_classes=self.num_classes)
         acc_func = Accuracy(task="multiclass", num_classes=self.num_classes)
-        f1_func = F1Score(task="multiclass", num_classes=self.num_classes)
-        prec_func = Precision(task="multiclass", num_classes=self.num_classes)
-        recall_func = Recall(task="multiclass", num_classes=self.num_classes)
+        f1_func = F1Score(task="multiclass", num_classes=self.num_classes, average="macro")
+        prec_func = Precision(task="multiclass", num_classes=self.num_classes, average="macro")
+        recall_func = Recall(task="multiclass", num_classes=self.num_classes, average="macro")
         average_prec_func = AveragePrecision(
             task="multiclass", num_classes=self.num_classes
         )
 
-        # scores without taking detection into account
         auroc_score = float(auroc_func(probabilities, gt).detach().cpu())
         acc_score = float(acc_func(predictions, gt).detach().cpu())
         f1_score = float(f1_func(predictions, gt).detach().cpu())
@@ -265,12 +524,18 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             gt (torch.Tensor): Ground-truth Predictions. Shape: Num-cells
             test_result_dir (Union[Path, str]): Path to the test result directory
         """
-        # confusion matrix
         conf_matrix = pycm.ConfusionMatrix(
             actual_vector=gt.detach().cpu().numpy(),
             predict_vector=predictions.detach().cpu().numpy(),
         )
-        conf_matrix.relabel(self.inference_dataset.merged_nuclei_dict_names)
+        # Only relabel classes that are actually present in the confusion matrix
+        # to avoid "Mapping class names error" when nuclei_type_names has extra classes
+        relabel_mapping = {
+            cls: self.nuclei_type_names[cls]
+            for cls in conf_matrix.classes
+            if cls in self.nuclei_type_names
+        }
+        conf_matrix.relabel(relabel_mapping)
         conf_matrix.save_stat(
             str(test_result_dir / "confusion_matrix_summary"), summary=True
         )
@@ -286,6 +551,14 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         fig.savefig(str(test_result_dir / "confusion_matrix.pdf"), dpi=600)
         plt.close(fig)
 
+        # Save confusion matrix data as JSON
+        matrix_json_path = str(test_result_dir / "confusion_matrix_matrix.json")
+        with open(matrix_json_path, "w") as f:
+            # Convert matrix dict to JSON-serializable format
+            matrix_dict = {str(k): {str(k2): int(v2) for k2, v2 in v.items()} 
+                           for k, v in conf_matrix.matrix.items()}
+            json.dump(matrix_dict, f, indent=2)
+
         axs = conf_matrix.plot(
             cmap=plt.cm.Blues,
             plot_lib="seaborn",
@@ -298,8 +571,42 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         fig.savefig(str(test_result_dir / "confusion_matrix_normalized.pdf"), dpi=600)
         plt.close(fig)
 
+    def _is_problematic_patch(
+        self, gt_inst_map: np.ndarray, pred_inst_map: np.ndarray
+    ) -> Tuple[bool, str]:
+        """Check if a patch would cause issues in metric calculation
+
+        Patches are problematic if they have no instances (only background),
+        which would cause "ValueError: attempt to get argmax of an empty sequence"
+        in the AJI metric calculation.
+
+        Args:
+            gt_inst_map (np.ndarray): Ground truth instance map
+            pred_inst_map (np.ndarray): Predicted instance map
+
+        Returns:
+            Tuple[bool, str]: (is_problematic, reason)
+                - is_problematic: True if patch should be filtered
+                - reason: One of ["both_empty", "gt_empty", "pred_empty", "valid"]
+        """
+        gt_ids = np.unique(gt_inst_map)
+        pred_ids = np.unique(pred_inst_map)
+
+        # Check if only background (ID=0) exists
+        gt_has_cells = len(gt_ids) > 1
+        pred_has_cells = len(pred_ids) > 1
+
+        if not gt_has_cells and not pred_has_cells:
+            return True, "both_empty"
+        elif not gt_has_cells:
+            return True, "gt_empty"
+        elif not pred_has_cells:
+            return True, "pred_empty"
+        else:
+            return False, "valid"
+
     def _calculate_pipeline_scores(self, cell_dict: dict) -> Tuple[dict, dict, dict]:
-        """Calculate the final pipeline scores, use the TIA evaluation metrics
+        """Calculate the final pipeline scores
 
         Args:
             cell_dict (dict): Cell dictionary
@@ -307,9 +614,8 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         Returns:
             Tuple[dict, dict, dict]: Segmentation, PQ and Detection Scores
         """
-        self.logger.info(
-            "Calculating dataset scores according to TIA Evaluation guidelines"
-        )
+        self.logger.info("Calculating dataset scores")
+
         segmentation_scores = {
             "binary": {
                 "dice": [],
@@ -344,12 +650,38 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         true_idx_offset = 0
         pred_idx_offset = 0
         mpq_info_list = []
+
+        # Track filtering statistics
+        filter_stats = {
+            "total": 0,
+            "filtered": 0,
+            "both_empty": 0,
+            "gt_empty": 0,
+            "pred_empty": 0,
+            "valid": 0,
+            "filtered_patches": []
+        }
+
+        gt_label_folder = self._get_gt_label_folder()
+
         for image_idx, (image_name, cells) in tqdm.tqdm(
             enumerate(cell_dict.items()), total=len(cell_dict)
         ):
-            gt_inst_map, gt_type_map = self._load_gt_mat(
-                self.dataset_path / "Test" / "labels-1000-1000" / f"{image_name}.mat"
-            )
+            filter_stats["total"] += 1
+            
+            # Load ground truth
+            gt_file_ext = "npy" if self.gt_format == "npy" else "mat"
+            gt_file = gt_label_folder / f"{image_name}.{gt_file_ext}"
+
+            if not gt_file.exists():
+                self.logger.warning(f"Ground truth file not found: {gt_file}")
+                continue
+
+            if self.gt_format == "npy":
+                gt_inst_map, gt_type_map = self._load_gt_npy(gt_file)
+            else:
+                gt_inst_map, gt_type_map = self._load_gt_mat(gt_file)
+
             pred_map, pred_inst_map, pred_type_map = self._load_pred_map(
                 cells, img_shape=gt_inst_map.shape
             )
@@ -358,7 +690,28 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                 binarize(pred_map.transpose(1, 2, 0)), by_size=False
             )
 
-            # segmentation scores
+            # Check if patch is problematic and filter if needed
+            is_problematic, reason = self._is_problematic_patch(
+                gt_inst_map, pred_inst_map_binary
+            )
+            
+            if is_problematic:
+                filter_stats["filtered"] += 1
+                filter_stats[reason] += 1
+                filter_stats["filtered_patches"].append({
+                    "name": image_name,
+                    "reason": reason
+                })
+                self.logger.debug(
+                    f"Filtering patch {image_name}: {reason} "
+                    f"(GT cells: {len(np.unique(gt_inst_map))-1}, "
+                    f"Pred cells: {len(np.unique(pred_inst_map_binary))-1})"
+                )
+                continue
+            
+            filter_stats["valid"] += 1
+
+            # Segmentation scores
             dice_1 = get_dice_1(true=gt_inst_map, pred=pred_inst_map_binary)
             aji = get_fast_aji(true=gt_inst_map, pred=pred_inst_map_binary)
             aji_plus = get_fast_aji_plus(true=gt_inst_map, pred=pred_inst_map_binary)
@@ -366,17 +719,16 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             segmentation_scores["binary"]["fast_aji"].append(aji)
             segmentation_scores["binary"]["fast_aji_plus"].append(aji_plus)
 
-            # panoptic scores
+            # Panoptic scores
             (dq, sq, pq), _ = get_fast_pq(true=gt_inst_map, pred=pred_inst_map_binary)
             pq_scores["binary"]["pq"].append(pq)
             pq_scores["binary"]["dq"].append(dq)
             pq_scores["binary"]["sq"].append(sq)
 
-            # per cell type scores
+            # Per cell type scores
             image_pq = []
             pq_clx = {"dq": [], "sq": [], "pq": []}
-            for cell_type_idx in range(0, self.num_classes):
-                cell_type_idx = cell_type_idx + 1  # 0 is background
+            for cell_type_idx in range(1, self.num_classes + 1):
                 pred_nuclei_inst_map = remap_label(
                     pred_map[cell_type_idx, :, :], by_size=False
                 )
@@ -388,7 +740,6 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                     gt_nuclei_inst_map, pred_nuclei_inst_map, remap=False
                 )
                 if len(np.unique(gt_nuclei_inst_map)) == 1:
-                    dq, sq, pq = np.nan, np.nan, np.nan
                     pq_clx["dq"].append(np.nan)
                     pq_clx["sq"].append(np.nan)
                     pq_clx["pq"].append(np.nan)
@@ -412,16 +763,15 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                 mpq_info.append([tp, fp, fn, sum_iou])
             mpq_info_list.append(mpq_info)
 
-            # detection scores
-            gt_inst_map = torch.Tensor(gt_inst_map).unsqueeze(0)
-            gt_type_map = torch.Tensor(gt_type_map).unsqueeze(0)
-            # combine gt_instance and gt_type map to achieve [B, C, H, W] for gt_type_map
-            gt_type_map_oh = F.one_hot(gt_type_map.to(torch.int64), 5).type(
-                torch.float32
-            )
+            # Detection scores
+            gt_inst_map_tensor = torch.Tensor(gt_inst_map).unsqueeze(0)
+            gt_type_map_tensor = torch.Tensor(gt_type_map).unsqueeze(0)
+            gt_type_map_oh = F.one_hot(
+                gt_type_map_tensor.to(torch.int64), self.num_classes + 1
+            ).type(torch.float32)
             gt_type_map_oh = gt_type_map_oh.permute(0, 3, 1, 2)[:, 1:, :, :]
             gt_instance_types = calculate_instances(
-                torch.Tensor(gt_type_map_oh), torch.Tensor(gt_inst_map)
+                torch.Tensor(gt_type_map_oh), torch.Tensor(gt_inst_map_tensor)
             )
             true_centroids = np.array(
                 [v["centroid"] for k, v in gt_instance_types[0].items()]
@@ -430,7 +780,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                 [v["type"] for k, v in gt_instance_types[0].items()]
             )
 
-            # recalculate cell dict items because of rescaling...
+            # Recalculate cell dict items
             pred_instance_types_rescaled = calculate_instances(
                 torch.Tensor(np.clip(pred_map[1:, ...], 0, 1)[None, ...]),
                 torch.Tensor(pred_inst_map)[None, :],
@@ -453,20 +803,21 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             paired, unpaired_true, unpaired_pred = pair_coordinates(
                 true_centroids, pred_centroids, pairing_radius
             )
+            # Calculate offsets - check list is not empty before accessing [-1]
             true_idx_offset = (
                 true_idx_offset + detection_tracker["true_inst_type_all"][-1].shape[0]
-                if image_idx != 0
+                if image_idx != 0 and len(detection_tracker["true_inst_type_all"]) > 0
                 else 0
             )
             pred_idx_offset = (
                 pred_idx_offset + detection_tracker["pred_inst_type_all"][-1].shape[0]
-                if image_idx != 0
+                if image_idx != 0 and len(detection_tracker["pred_inst_type_all"]) > 0
                 else 0
             )
             detection_tracker["true_inst_type_all"].append(true_instance_type)
             detection_tracker["pred_inst_type_all"].append(pred_instance_type)
-            # increment the pairing index statistic
-            if paired.shape[0] != 0:  # ! sanity
+
+            if paired.shape[0] != 0:
                 paired[:, 0] += true_idx_offset
                 paired[:, 1] += pred_idx_offset
                 detection_tracker["paired_all"].append(paired)
@@ -476,6 +827,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             detection_tracker["unpaired_true_all"].append(unpaired_true)
             detection_tracker["unpaired_pred_all"].append(unpaired_pred)
 
+        # Calculate mean+ PQ scores
         mpq_info_metrics = np.array(mpq_info_list, dtype="float")
         total_mpq_info_metrics = np.sum(mpq_info_metrics, axis=0)
         mdq_list = []
@@ -496,6 +848,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         pq_scores["mean+"]["sq"] = msq_list
         pq_scores["mean+"]["pq"] = mpq_list
 
+        # Concatenate detection tracker arrays
         detection_tracker["paired_all"] = np.concatenate(
             detection_tracker["paired_all"], axis=0
         )
@@ -525,7 +878,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             "pred_inst_type_all"
         ][detection_tracker["unpaired_pred_all"]]
 
-        # global scores
+        # Global detection scores
         f1_d, prec_d, rec_d = cell_detection_scores(
             paired_true=detection_tracker["paired_true_type"],
             paired_pred=detection_tracker["paired_pred_type"],
@@ -535,6 +888,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         detection_scores = {"binary": {}, "cell_types": {}}
         detection_scores["binary"] = {"f1": f1_d, "prec": prec_d, "rec": rec_d}
 
+        # Per-class detection scores
         for cell_idx in range(self.num_classes):
             detection_scores["cell_types"][cell_idx] = {}
             f1_c, prec_c, rec_c = cell_type_detection_scores(
@@ -550,6 +904,49 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                 "rec": rec_c,
             }
 
+        # Calculate per-class detection F1 scores using sklearn
+        from sklearn.metrics import f1_score, precision_score, recall_score
+        
+        true_types = detection_tracker["true_inst_type_all"]
+        pred_types = detection_tracker["pred_inst_type_all"]
+        
+        # Ensure arrays have same length to avoid sklearn ValueError
+        if len(true_types) != len(pred_types):
+            self.logger.warning(
+                f"Length mismatch in detection_tracker: "
+                f"true_types={len(true_types)}, pred_types={len(pred_types)}. "
+                f"Truncating to minimum length."
+            )
+            min_len = min(len(true_types), len(pred_types))
+            true_types = true_types[:min_len]
+            pred_types = pred_types[:min_len]
+        
+        if len(true_types) > 0:
+            # Calculate per-class metrics
+            per_class_f1 = f1_score(true_types, pred_types, average=None, zero_division=0)
+            per_class_precision = precision_score(true_types, pred_types, average=None, zero_division=0)
+            per_class_recall = recall_score(true_types, pred_types, average=None, zero_division=0)
+            
+            # Get class names (excluding background at index 0)
+            class_names = [self.nuclei_type_names[i] for i in range(len(per_class_f1))]
+            
+            # Store per-class metrics
+            detection_scores["per_class"] = {
+                "f1_score": {name: float(score) for name, score in zip(class_names, per_class_f1)},
+                "precision": {name: float(score) for name, score in zip(class_names, per_class_precision)},
+                "recall": {name: float(score) for name, score in zip(class_names, per_class_recall)}
+            }
+            
+            # Log per-class metrics
+            self.logger.info("Per-class detection metrics:")
+            for i, name in enumerate(class_names):
+                self.logger.info(
+                    f"  {name}: F1={per_class_f1[i]:.3f}, "
+                    f"Prec={per_class_precision[i]:.3f}, "
+                    f"Rec={per_class_recall[i]:.3f}"
+                )
+
+        # Calculate means
         segmentation_scores["binary"]["dice"] = np.nanmean(
             segmentation_scores["binary"]["dice"]
         )
@@ -584,6 +981,24 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         pq_scores["mean+"]["dq"] = np.nanmean(pq_scores["mean+"]["dq"])
         pq_scores["mean+"]["sq"] = np.nanmean(pq_scores["mean+"]["sq"])
 
+        # Report filtering statistics
+        self.logger.info("=" * 70)
+        self.logger.info("Patch Filtering Statistics:")
+        self.logger.info(f"  Total patches: {filter_stats['total']}")
+        self.logger.info(f"  Valid patches: {filter_stats['valid']} ({filter_stats['valid']/filter_stats['total']*100:.1f}%)")
+        self.logger.info(f"  Filtered patches: {filter_stats['filtered']} ({filter_stats['filtered']/filter_stats['total']*100:.1f}%)")
+        if filter_stats['filtered'] > 0:
+            self.logger.info("  Filtered by reason:")
+            self.logger.info(f"    - Both empty (GT & Pred): {filter_stats['both_empty']}")
+            self.logger.info(f"    - GT empty only: {filter_stats['gt_empty']}")
+            self.logger.info(f"    - Predictions empty only: {filter_stats['pred_empty']}")
+            self.logger.info("  Filtered patch names:")
+            for patch_info in filter_stats['filtered_patches'][:10]:  # Show first 10
+                self.logger.info(f"    - {patch_info['name']} ({patch_info['reason']})")
+            if len(filter_stats['filtered_patches']) > 10:
+                self.logger.info(f"    ... and {len(filter_stats['filtered_patches']) - 10} more")
+        self.logger.info("=" * 70)
+
         return segmentation_scores, pq_scores, detection_scores
 
     def update_cell_dict_with_predictions(
@@ -602,9 +1017,9 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             metadata (List[Tuple[float, float, str]]): Cell metadata
 
         Returns:
-            dict: Updated cell dictionary, be careful about the ordering -> Types start with the index 0
+            dict: Updated cell dictionary
         """
-        self.logger.info("Updating PanNuke-cell-preds with dataset specific classes")
+        self.logger.info("Updating cell predictions with classifier outputs")
         for pred, prob, inform in tqdm.tqdm(
             zip(predictions, probabilities, metadata), total=len(predictions)
         ):
@@ -634,19 +1049,15 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                         cell_idx
                     ]["contour"].tolist()
                     cell_found = True
-            assert cell_found, "Not all cells have predictions"
+            assert cell_found, f"Cell not found for centroid ({row_pred}, {col_pred}) in image {image_name}"
 
         return cell_dict
 
     def run_inference(self):
-        """Run Inference on Test Dataset for CoNSeP data"""
-        extracted_cells = []  # all cells detected with cellvit
-        extracted_cells_cleaned = (
-            []
-        )  # all cells detected with cellvit, but only the ones that are paired with ground truth (no false positives)
-        image_pred_dict = (
-            {}
-        )  # dict with all cells detected with cellvit (including false positives)
+        """Run Inference on Test Dataset for Generic Nuclei Segmentation"""
+        extracted_cells = []
+        extracted_cells_cleaned = []
+        image_pred_dict = {}
         detection_scores = {
             "F1": [],
             "Prec": [],
@@ -654,7 +1065,12 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         }
         scores = {}
 
-        postprocessor = DetectionCellPostProcessorCupy(wsi=None, nr_types=6)
+        # Use CellViT model's number of nuclei types for postprocessing
+        # (NOT the classifier's num_classes, which may be different)
+        cellvit_num_types = self.cellvit_model.num_nuclei_classes
+        postprocessor = DetectionCellPostProcessorCupy(
+            wsi=None, nr_types=cellvit_num_types
+        )
         cellvit_dl = DataLoader(
             self.inference_dataset,
             batch_size=4,
@@ -664,6 +1080,7 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
         )
 
         # Step 1: Extract cells with CellViT
+        self.logger.info("Step 1: Extracting cells with CellViT")
         with torch.no_grad():
             for _, (images, cell_gt_batch, types_batch, image_names) in tqdm.tqdm(
                 enumerate(cellvit_dl), total=len(cellvit_dl)
@@ -695,11 +1112,14 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
                 "Rec": float(np.mean(np.array(detection_scores["Rec"]))),
             }
             self.logger.info(
-                f"Extraction detection metrics - F1: {cellvit_detection_scores['F1']:.3f}, Precision: {cellvit_detection_scores['Prec']:.3f}, Recall: {cellvit_detection_scores['Rec']:.3f}"
+                f"Extraction detection metrics - F1: {cellvit_detection_scores['F1']:.3f}, "
+                f"Precision: {cellvit_detection_scores['Prec']:.3f}, "
+                f"Recall: {cellvit_detection_scores['Rec']:.3f}"
             )
             scores["cellvit_scores"] = cellvit_detection_scores
 
-        # Step 2: Classify Cell Tokens with the classifier, but only the cleaned version
+        # Step 2: Classify Cell Tokens with the classifier
+        self.logger.info("Step 2: Classifying cells with classifier")
         cleaned_inference_results = self._get_classifier_result(extracted_cells_cleaned)
 
         scores["classifier"] = {}
@@ -716,10 +1136,11 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             gt=cleaned_inference_results["gt"],
         )
         self.logger.info(
-            "Global Scores - Without taking cell detection quality into account:"
+            "Global Classifier Scores (without detection quality):"
         )
         self.logger.info(
-            f"F1: {f1_score:.3} - Prec: {prec_score:.3} - Rec: {recall_score:.3} - Acc: {acc_score:.3} - Auroc: {auroc_score:.3}"
+            f"F1: {f1_score:.3f} - Prec: {prec_score:.3f} - Rec: {recall_score:.3f} - "
+            f"Acc: {acc_score:.3f} - Auroc: {auroc_score:.3f} - AP: {ap_score:.3f}"
         )
         scores["classifier"]["global"] = {
             "F1": f1_score,
@@ -735,7 +1156,8 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             test_result_dir=self.test_result_dir,
         )
 
-        # Step 3: Classify Cell Tokens, but with the uncleaned version
+        # Step 3: Update predictions with uncleaned version
+        self.logger.info("Step 3: Updating cell predictions")
         inference_results = self._get_classifier_result(extracted_cells)
         inference_results.pop("gt")
         cell_pred_dict = self.update_cell_dict_with_predictions(
@@ -745,10 +1167,9 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             metadata=inference_results["metadata"],
         )
 
-        # store preds as json
+        # Store predictions as JSON
         (self.test_result_dir / "cell_predictions").mkdir(exist_ok=True)
         for image_name, cell_dict in cell_pred_dict.items():
-            # Writing data to the JSON file
             cell_dict = {int(k): v for k, v in cell_dict.items()}
             cell_dict = dict(sorted(cell_dict.items()))
             with open(
@@ -756,7 +1177,8 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             ) as json_file:
                 json.dump(cell_dict, json_file, indent=2)
 
-        # Step 4: Evaluate the whole pipeline and calculating the final scores
+        # Step 4: Evaluate the whole pipeline
+        self.logger.info("Step 4: Calculating final pipeline scores")
         (
             segmentation_scores,
             pq_scores,
@@ -767,39 +1189,70 @@ class CellViTInfExpCoNSep(CellViTClassifierInferenceExperiment):
             "detection_scores": detection_scores,
             "pq_scores": pq_scores,
         }
-        # replace cell_type by names and jsonify
+
+        # Replace cell_type indices by names
         scores["pipeline"]["pq_scores"]["cell_types+"] = {
-            self.inference_dataset.merged_nuclei_dict_names[k]: v
+            self.nuclei_type_names.get(k, f"Type_{k}"): v
             for k, v in scores["pipeline"]["pq_scores"]["cell_types+"].items()
         }
         scores["pipeline"]["detection_scores"]["cell_types"] = {
-            self.inference_dataset.merged_nuclei_dict_names[k]: v
+            self.nuclei_type_names.get(k, f"Type_{k}"): v
             for k, v in scores["pipeline"]["detection_scores"]["cell_types"].items()
         }
+
         scores_json = json.dumps(scores, indent=2)
         self.logger.info(f"{50*'*'}")
+        self.logger.info("Final Results:")
         self.logger.info(scores_json)
 
         with open(self.test_result_dir / "inference_results.json", "w") as json_file:
             json.dump(scores, json_file, indent=2)
 
+        self.logger.info(f"Results saved to: {self.test_result_dir}")
 
-class CellViTInfExpCoNSepParser:
+
+class CellViTInfExpNucleiSegmentationParser:
     def __init__(self) -> None:
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            description="Perform CellViT-Classifier inference for CoNSeP dataset",
+            description="Perform CellViT-Classifier inference for generic nuclei segmentation datasets",
         )
         parser.add_argument(
             "--logdir",
             type=str,
+            required=True,
             help="Path to the log directory with the trained head.",
         )
         parser.add_argument(
-            "--dataset_path", type=str, help="Path to the CoNSeP dataset"
+            "--dataset_path",
+            type=str,
+            required=True,
+            help="Path to the nuclei segmentation dataset root folder",
         )
         parser.add_argument(
-            "--cellvit_path", type=str, help="Path to the Cellvit model"
+            "--cellvit_path",
+            type=str,
+            required=True,
+            help="Path to the CellViT model checkpoint",
+        )
+        parser.add_argument(
+            "--split",
+            type=str,
+            default="test",
+            help="Name of the split to evaluate (e.g., 'test', 'val', 'Test')",
+        )
+        parser.add_argument(
+            "--label_map_file",
+            type=str,
+            default="label_map.yaml",
+            help="Name of the label map file (label_map.yaml or dataset_config.yaml)",
+        )
+        parser.add_argument(
+            "--gt_format",
+            type=str,
+            default="npy",
+            choices=["npy", "mat"],
+            help="Format of ground truth files ('npy' or 'mat')",
         )
         parser.add_argument(
             "--checkpoint_name",
@@ -824,13 +1277,16 @@ class CellViTInfExpCoNSepParser:
 
 
 if __name__ == "__main__":
-    configuration_parser = CellViTInfExpCoNSepParser()
+    configuration_parser = CellViTInfExpNucleiSegmentationParser()
     configuration = configuration_parser.parse_arguments()
 
-    experiment_inferer = CellViTInfExpCoNSep(
+    experiment_inferer = CellViTInfExpNucleiSegmentation(
         logdir=configuration["logdir"],
         cellvit_path=configuration["cellvit_path"],
         dataset_path=configuration["dataset_path"],
+        split=configuration["split"],
+        label_map_file=configuration["label_map_file"],
+        gt_format=configuration["gt_format"],
         normalize_stains=configuration["normalize_stains"],
         gpu=configuration["gpu"],
         checkpoint_name=configuration["checkpoint_name"],

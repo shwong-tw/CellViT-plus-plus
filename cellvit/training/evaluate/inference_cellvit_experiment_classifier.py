@@ -50,20 +50,43 @@ from cellvit.utils.tools import unflatten_dict
 
 class CellViTClassifierInferenceExperiment(ABC):
     """Inference Experiment for CellViT with a Classifier Head
+    
+    This class implements a two-stage evaluation pipeline:
+    
+    Stage 1 - Cell Detection (CellViT):
+        - Detects and segments individual cells from images
+        - Extracts feature embeddings for each detected cell
+        - Uses pretrained CellViT model (cellvit_path)
+    
+    Stage 2 - Cell Classification (Classifier Head):
+        - Classifies detected cells into nuclei types
+        - Uses your trained classifier (logdir/checkpoints/checkpoint_name)
+        - Takes cell embeddings as input, outputs class predictions
+    
+    Why both models are needed:
+        - CellViT: Pretrained base model for cell detection (universal)
+        - Classifier: Your trained model for your specific cell types (custom)
+        - Pipeline: Image → CellViT → Embeddings → Classifier → Class Labels
 
     Args:
-        logdir (Union[Path, str]): Log directory with the trained classifier
-        cellvit_path (Union[Path, str]): Path to pretrained CellViT model
+        logdir (Union[Path, str]): Directory containing your trained classifier checkpoint
+            - The classifier checkpoint should be at: {logdir}/checkpoints/{checkpoint_name}
+            - This is created automatically during training
+        cellvit_path (Union[Path, str]): Path to pretrained CellViT base model
+            - This is the segmentation model (e.g., CellViT-256-x40.pth)
+            - Download from CellViT model repository
+            - Used for detecting cells and extracting features
         dataset_path (Union[Path, str]): Path to the dataset (parent path, not the fold path)
         normalize_stains (bool, optional): If stains should be normalized. Defaults to False.
         gpu (int, optional): GPU to use. Defaults to 0.
         comment (str, optional): Comment for storing. Defaults to None.
+        checkpoint_name (str, optional): Name of the classifier checkpoint file. Defaults to "model_best.pth".
 
     Attributes:
         logger (Logger): Logger for the experiment
-        model (nn.Module): The model used for inference
-        run_conf (dict): Configuration for the run
-        cellvit_model (nn.Module): The CellViT model used
+        model (nn.Module): The classifier model (YOUR trained model from logdir)
+        run_conf (dict): Configuration for the classifier training run
+        cellvit_model (nn.Module): The CellViT segmentation model (pretrained base model)
         cellvit_run_conf (dict): Configuration for the CellViT model
         inference_transforms (Callable): Transforms applied for inference
         inference_dataset (Dataset): Dataset used for inference
@@ -72,11 +95,14 @@ class CellViTClassifierInferenceExperiment(ABC):
         logdir (Path): Directory for logs
         comment (str): Comment for the experiment
         test_result_dir (Path): Directory for test results
-        model_path (Path): Path to the model
-        cellvit_path (Path): Path to the CellViT model
+        model_path (Path): Path to the classifier checkpoint (in logdir/checkpoints/)
+        cellvit_path (Path): Path to the CellViT model (pretrained base model)
         dataset_path (Path): Path to the dataset
         normalize_stains (bool): If stains should be normalized
         device (str): Device used for the experiment (e.g., "cuda:0")
+    
+    See Also:
+        docs/UNDERSTANDING_TWO_STAGE_ARCHITECTURE.md - Detailed explanation of why both models are needed
 
     Methods:
         _create_inference_directory(comment: str) -> Path:
@@ -117,6 +143,7 @@ class CellViTClassifierInferenceExperiment(ABC):
         normalize_stains: bool = False,
         gpu: int = 0,
         comment: str = None,
+        checkpoint_name: str = "model_best.pth",
     ) -> None:
         self.logger: Logger
         self.model: nn.Module
@@ -139,17 +166,24 @@ class CellViTClassifierInferenceExperiment(ABC):
 
         self.logdir = Path(logdir)
         self.comment = comment
-        self.model_path = self.logdir / "checkpoints" / "model_best.pth"
+        # Path to YOUR trained classifier (in logdir/checkpoints/)
+        self.model_path = self.logdir / "checkpoints" / checkpoint_name
+        # Path to pretrained CellViT base model (for cell detection)
         self.cellvit_path = Path(cellvit_path)
         self.dataset_path = Path(dataset_path)
         self.normalize_stains = normalize_stains
         self.device = f"cuda:{gpu}"
 
+        # Validate paths before proceeding
+        self._validate_paths()
+
         self.test_result_dir = self._create_inference_directory(comment)
         self._instantiate_logger()
+        # Load CellViT model (Stage 1: Cell detection and feature extraction)
         self.cellvit_model, self.cellvit_run_conf = self._load_cellvit_model(
             checkpoint_path=self.cellvit_path
         )
+        # Load Classifier model (Stage 2: Cell classification using extracted features)
         self.model, self.run_conf = self._load_model(checkpoint_path=self.model_path)
         self.num_classes = self.run_conf["data"]["num_classes"]
         self.inference_transforms = self._load_inference_transforms(
@@ -162,6 +196,71 @@ class CellViTClassifierInferenceExperiment(ABC):
             self.inference_transforms, self.normalize_stains
         )
         self._setup_amp(enforce_mixed_precision=False)
+
+    def _validate_paths(self) -> None:
+        """Validate all required paths before starting inference
+        
+        Raises:
+            FileNotFoundError: If required paths don't exist
+            ValueError: If paths are invalid
+        """
+        errors = []
+        
+        # Check logdir exists
+        if not self.logdir.exists():
+            errors.append(
+                f"❌ Training logdir not found: {self.logdir}\n"
+                f"   Make sure you're pointing to the correct training output directory."
+            )
+        
+        # Check classifier checkpoint exists
+        if not self.model_path.exists():
+            errors.append(
+                f"❌ Classifier checkpoint not found: {self.model_path}\n"
+                f"   Expected location: {self.logdir}/checkpoints/{self.model_path.name}\n"
+                f"   Available checkpoints:\n"
+            )
+            checkpoint_dir = self.logdir / "checkpoints"
+            if checkpoint_dir.exists():
+                checkpoints = list(checkpoint_dir.glob("*.pth"))
+                if checkpoints:
+                    for ckpt in checkpoints:
+                        errors.append(f"      - {ckpt.name}")
+                else:
+                    errors.append(f"      (no .pth files found)")
+            else:
+                errors.append(f"      (checkpoints directory doesn't exist)")
+        
+        # Check CellViT model exists
+        if not self.cellvit_path.exists():
+            errors.append(
+                f"❌ CellViT model not found: {self.cellvit_path}\n"
+                f"   This is the pretrained CellViT segmentation model.\n"
+                f"   Download from: https://github.com/TIO-IKIM/CellViT/releases\n"
+                f"   Make sure the path is correct and the file exists."
+            )
+        
+        # Check dataset path exists
+        if not self.dataset_path.exists():
+            errors.append(
+                f"❌ Dataset path not found: {self.dataset_path}\n"
+                f"   Make sure the dataset directory exists."
+            )
+        
+        if errors:
+            error_message = f"""
+{'='*70}
+🛑 Path Validation Failed
+{'='*70}
+
+{chr(10).join(errors)}
+
+{'='*70}
+Please fix the above issues and try again.
+See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for guidance.
+{'='*70}
+"""
+            raise FileNotFoundError(error_message)
 
     def _create_inference_directory(self, comment: str) -> Path:
         """Create directory for test results
@@ -202,19 +301,45 @@ class CellViTClassifierInferenceExperiment(ABC):
                 * Classifier
                 * Configuration for training the classifier
         """
-        model_checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        run_conf = unflatten_dict(model_checkpoint["config"], ".")
+        try:
+            model_checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load classifier checkpoint from {checkpoint_path}\n"
+                f"Error: {str(e)}\n"
+                f"Make sure the checkpoint file is not corrupted and is a valid PyTorch checkpoint."
+            )
+        
+        try:
+            run_conf = unflatten_dict(model_checkpoint["config"], ".")
 
-        model = LinearClassifier(
-            embed_dim=model_checkpoint["model_state_dict"]["fc1.weight"].shape[1],
-            hidden_dim=run_conf["model"].get("hidden_dim", 100),
-            num_classes=run_conf["data"]["num_classes"],
-            drop_rate=0,
-        )
-        self.logger.info(model.load_state_dict(model_checkpoint["model_state_dict"]))
-        model = model.to(self.device)
-        model.eval()
-        return model, run_conf
+            model = LinearClassifier(
+                embed_dim=model_checkpoint["model_state_dict"]["fc1.weight"].shape[1],
+                hidden_dim=run_conf["model"].get("hidden_dim", 100),
+                num_classes=run_conf["data"]["num_classes"],
+                drop_rate=0,
+            )
+            # Load model weights
+            load_result = model.load_state_dict(model_checkpoint["model_state_dict"])
+            # Log any issues with loading
+            if load_result.missing_keys:
+                self.logger.warning(f"Missing keys when loading classifier: {load_result.missing_keys}")
+            if load_result.unexpected_keys:
+                self.logger.warning(f"Unexpected keys when loading classifier: {load_result.unexpected_keys}")
+            self.logger.info("Classifier model loaded successfully")
+            model = model.to(self.device)
+            model.eval()
+            return model, run_conf
+        except KeyError as e:
+            raise RuntimeError(
+                f"Classifier checkpoint is missing required key: {str(e)}\n"
+                f"The checkpoint file may be corrupted or from an incompatible version."
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize classifier model: {str(e)}\n"
+                f"Check that the checkpoint is compatible with the current code version."
+            )
 
     def _load_cellvit_model(
         self, checkpoint_path: Union[Path, str]
@@ -229,18 +354,51 @@ class CellViTClassifierInferenceExperiment(ABC):
                 * CellViT-Model
                 * Dictionary with CellViT-Model configuration
         """
-        model_checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        self.logger.info(f"Loading CellViT model from: {checkpoint_path}")
+        
+        try:
+            model_checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load CellViT checkpoint from {checkpoint_path}\n"
+                f"Error: {str(e)}\n\n"
+                f"Common causes:\n"
+                f"  - File doesn't exist or path is incorrect\n"
+                f"  - File is corrupted\n"
+                f"  - Not a valid PyTorch checkpoint\n"
+                f"  - Downloaded file is incomplete\n\n"
+                f"Make sure you downloaded the correct CellViT model from:\n"
+                f"https://github.com/TIO-IKIM/CellViT/releases"
+            )
 
-        # unpack checkpoint
-        cellvit_run_conf = unflatten_dict(model_checkpoint["config"], ".")
-        model = self._get_cellvit_architecture(
-            model_type=model_checkpoint["arch"], model_conf=cellvit_run_conf
-        )
-        self.logger.info(model.load_state_dict(model_checkpoint["model_state_dict"]))
-        cellvit_run_conf["model"]["token_patch_size"] = model.patch_size
-        model = model.to(self.device)
-        model.eval()
-        return model, cellvit_run_conf
+        try:
+            # unpack checkpoint
+            cellvit_run_conf = unflatten_dict(model_checkpoint["config"], ".")
+            model = self._get_cellvit_architecture(
+                model_type=model_checkpoint["arch"], model_conf=cellvit_run_conf
+            )
+            # Load model weights and handle any missing/unexpected keys
+            load_result = model.load_state_dict(model_checkpoint["model_state_dict"])
+            if load_result.missing_keys:
+                self.logger.warning(f"Missing keys when loading CellViT model: {load_result.missing_keys}")
+            if load_result.unexpected_keys:
+                self.logger.warning(f"Unexpected keys when loading CellViT model: {load_result.unexpected_keys}")
+            cellvit_run_conf["model"]["token_patch_size"] = model.patch_size
+            model = model.to(self.device)
+            model.eval()
+            self.logger.info(f"CellViT model loaded successfully: {model_checkpoint['arch']}")
+            return model, cellvit_run_conf
+        except KeyError as e:
+            raise RuntimeError(
+                f"CellViT checkpoint is missing required key: {str(e)}\n"
+                f"The checkpoint file may be corrupted or from an incompatible version.\n"
+                f"Please re-download the model from: https://github.com/TIO-IKIM/CellViT/releases"
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize CellViT model: {str(e)}\n"
+                f"Check that the checkpoint is a valid CellViT model."
+            )
 
     def _get_cellvit_architecture(
         self,
