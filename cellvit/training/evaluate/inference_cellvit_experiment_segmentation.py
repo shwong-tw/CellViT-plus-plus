@@ -910,6 +910,17 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         true_types = detection_tracker["true_inst_type_all"]
         pred_types = detection_tracker["pred_inst_type_all"]
         
+        # Ensure arrays have same length to avoid sklearn ValueError
+        if len(true_types) != len(pred_types):
+            self.logger.warning(
+                f"Length mismatch in detection_tracker: "
+                f"true_types={len(true_types)}, pred_types={len(pred_types)}. "
+                f"Truncating to minimum length."
+            )
+            min_len = min(len(true_types), len(pred_types))
+            true_types = true_types[:min_len]
+            pred_types = pred_types[:min_len]
+        
         if len(true_types) > 0:
             # Calculate per-class metrics
             per_class_f1 = f1_score(true_types, pred_types, average=None, zero_division=0)
