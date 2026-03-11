@@ -551,6 +551,14 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         fig.savefig(str(test_result_dir / "confusion_matrix.pdf"), dpi=600)
         plt.close(fig)
 
+        # Save confusion matrix data as JSON
+        matrix_json_path = str(test_result_dir / "confusion_matrix_matrix.json")
+        with open(matrix_json_path, "w") as f:
+            # Convert matrix dict to JSON-serializable format
+            matrix_dict = {str(k): {str(k2): int(v2) for k2, v2 in v.items()} 
+                           for k, v in conf_matrix.matrix.items()}
+            json.dump(matrix_dict, f, indent=2)
+
         axs = conf_matrix.plot(
             cmap=plt.cm.Blues,
             plot_lib="seaborn",
