@@ -1067,6 +1067,37 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
                 f"Recall: {cellvit_detection_scores['Rec']:.3f}"
             )
             scores["cellvit_scores"] = cellvit_detection_scores
+            
+            # Calculate per-class detection F1 scores
+            from sklearn.metrics import f1_score, precision_score, recall_score
+            
+            true_types = np.array(detection_tracker["true_inst_type_all"])
+            pred_types = np.array(detection_tracker["pred_inst_type_all"])
+            
+            # Calculate per-class metrics
+            per_class_f1 = f1_score(true_types, pred_types, average=None, zero_division=0)
+            per_class_precision = precision_score(true_types, pred_types, average=None, zero_division=0)
+            per_class_recall = recall_score(true_types, pred_types, average=None, zero_division=0)
+            
+            # Get class names (excluding background at index 0)
+            class_names = [self.nuclei_type_names[i] for i in range(len(per_class_f1))]
+            
+            # Store per-class metrics
+            per_class_detection = {
+                "f1_score": {name: float(score) for name, score in zip(class_names, per_class_f1)},
+                "precision": {name: float(score) for name, score in zip(class_names, per_class_precision)},
+                "recall": {name: float(score) for name, score in zip(class_names, per_class_recall)}
+            }
+            
+            self.logger.info("Per-class detection metrics:")
+            for name in class_names:
+                self.logger.info(
+                    f"  {name}: F1={per_class_detection['f1_score'][name]:.3f}, "
+                    f"Prec={per_class_detection['precision'][name]:.3f}, "
+                    f"Rec={per_class_detection['recall'][name]:.3f}"
+                )
+            
+            scores["cellvit_scores"]["per_class_detection"] = per_class_detection
 
         # Step 2: Classify Cell Tokens with the classifier
         self.logger.info("Step 2: Classifying cells with classifier")

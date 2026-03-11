@@ -1869,6 +1869,80 @@ These metrics evaluate how well CellViT detects cell nuclei (binary detection ta
 
 **Matching criterion:** IoU threshold (typically 0.5) - a detected cell matches ground truth if their IoU ≥ threshold
 
+#### Per-Class Detection Metrics (`cellvit_scores.per_class_detection`)
+
+**NEW FEATURE:** Per-class F1, precision, and recall scores for each nuclei type.
+
+**Location in code:** Lines 1070-1103 in `_run_cellvit_inference()`
+**Calculation:** Uses `sklearn.metrics` with `average=None` for per-class scores
+
+These metrics break down detection performance by nuclei type, allowing you to identify which cell types are well-detected vs problematic.
+
+**Structure:**
+```json
+{
+  "per_class_detection": {
+    "f1_score": {
+      "Connective": 0.85,
+      "Inflammatory": 0.78,
+      "Neoplastic": 0.82
+    },
+    "precision": {
+      "Connective": 0.87,
+      "Inflammatory": 0.76,
+      "Neoplastic": 0.84
+    },
+    "recall": {
+      "Connective": 0.83,
+      "Inflammatory": 0.80,
+      "Neoplastic": 0.80
+    }
+  }
+}
+```
+
+**Per-Class F1 Score**
+- **Range:** 0.0 to 1.0 per class (higher is better)
+- **Formula:** `F1 = 2 × (Precision × Recall) / (Precision + Recall)` for each class
+- **Meaning:** Detection performance for a specific nuclei type
+- **Use cases:**
+  - Identify which cell types are well-detected
+  - Focus improvement efforts on problematic classes
+  - Balance detection across all types
+
+**Per-Class Precision**
+- **Range:** 0.0 to 1.0 per class
+- **Meaning:** For each cell type, what fraction of detections are correct
+- **Interpretation:**
+  - High = Few false positives for this type
+  - Low = Many cells wrongly classified as this type
+
+**Per-Class Recall**
+- **Range:** 0.0 to 1.0 per class
+- **Meaning:** For each cell type, what fraction of ground truth cells are detected
+- **Interpretation:**
+  - High = Few missed cells of this type
+  - Low = Many cells of this type are missed
+
+**Calculation details:**
+- Uses matched cell pairs (IoU ≥ threshold)
+- Only cells that are detected are evaluated
+- Requires correct type classification
+- Edge case: If a class has no samples, metrics are 0.0
+
+**Comparison with binary metrics:**
+- Binary metrics: Overall performance across all types
+- Per-class metrics: Individual performance per type
+- Example:
+  - Binary F1: 0.82 (good overall)
+  - Per-class F1: Connective 0.90, Inflammatory 0.80, Neoplastic 0.60
+  - Reveals: Neoplastic detection needs improvement!
+
+**Debugging low per-class F1:**
+- Low F1 for one class → investigate that specific cell type
+- Check if: Training data imbalance, morphological differences, staining variations
+- Solutions: Increase training samples, adjust class weights, improve features
+
 ---
 
 ### 2. Classifier Metrics (`classifier`)
