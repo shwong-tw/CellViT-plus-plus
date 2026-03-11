@@ -495,9 +495,9 @@ See docs/HOW_TO_RUN_SEGMENTATION_EVALUATION.md for more details.
         """
         auroc_func = AUROC(task="multiclass", num_classes=self.num_classes)
         acc_func = Accuracy(task="multiclass", num_classes=self.num_classes)
-        f1_func = F1Score(task="multiclass", num_classes=self.num_classes)
-        prec_func = Precision(task="multiclass", num_classes=self.num_classes)
-        recall_func = Recall(task="multiclass", num_classes=self.num_classes)
+        f1_func = F1Score(task="multiclass", num_classes=self.num_classes, average="macro")
+        prec_func = Precision(task="multiclass", num_classes=self.num_classes, average="macro")
+        recall_func = Recall(task="multiclass", num_classes=self.num_classes, average="macro")
         average_prec_func = AveragePrecision(
             task="multiclass", num_classes=self.num_classes
         )
