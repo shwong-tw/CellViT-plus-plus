@@ -190,8 +190,9 @@ class STHELARDataset(Dataset):
                 cell_annot = []
 
         # Extract detections and types
+        # Types stored as 1-indexed in JSON (matching CoNSeP convention), convert to 0-indexed
         detections = [(int(v["centroid"][0]), int(v["centroid"][1])) for v in cell_annot]
-        types = [int(v["type"]) - 1 for v in cell_annot]  # Convert to 0-indexed
+        types = [int(v["type"]) - 1 for v in cell_annot]
 
         # Stain normalization (optional)
         if self.normalize_stains:
@@ -204,11 +205,12 @@ class STHELARDataset(Dataset):
         img = np.array(img).astype(np.uint8)
 
         # Apply transforms (with keypoint-aware augmentation)
+        # Note: albumentations preserves keypoint order, so surviving keypoints
+        # maintain their original indices. This pattern matches CoNSeP/Ocelot datasets.
         if self.transforms:
             transformed = self.transforms(image=img, keypoints=detections)
             img = transformed["image"]
             detections = transformed["keypoints"]
-            # Keep only types for keypoints that survived the transform
             types = [types[idx] for idx, _ in enumerate(detections)]
 
         return img, detections, types, img_name

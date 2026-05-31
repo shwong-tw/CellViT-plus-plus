@@ -742,11 +742,14 @@ def download_and_process_sthelar(
         Image.fromarray(img).save(img_save_path)
 
         # Save detections as JSON (matching CoNSeP format)
+        # Types are stored 1-indexed in JSON: extract_cell_detections returns 0-indexed,
+        # we add 1 here so that STHELARDataset.__getitem__ can subtract 1 back to 0-indexed.
+        # This matches the convention used by CoNSeP/Ocelot datasets.
         detections_data = []
         for (cx, cy), ct in zip(centroids, types):
             detections_data.append({
                 "centroid": [cx, cy],
-                "type": ct + 1,  # 1-indexed for consistency with CoNSeP
+                "type": ct + 1,
             })
 
         det_save_path = output_path / split / "detections" / f"{patch_uid}.json"
