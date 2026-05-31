@@ -20,7 +20,7 @@ ___
 # CellViT++: Energy-Efficient and Adaptive Cell Segmentation and Classification Using Foundation
 <div align="center">
 
-[Key Features](#key-features) • [Installation](#installation) • [Inference](#inference) • [Examples](#examples) • [Re-training](#re-training-your-own-classifier) • [Reproducability](#reproducability) • [Viewer](#web-based-viewer) • [Annotation](#annotation-tool) • [Acknowledgements](#acknowledgements) • [Citation](#Citation)
+[Key Features](#key-features) • [Installation](#installation) • [Inference](#inference) • [Examples](#examples) • [Re-training](#re-training-your-own-classifier) • [Foundation Models](#foundation-models) • [Reproducability](#reproducability) • [Viewer](#web-based-viewer) • [Annotation](#annotation-tool) • [Acknowledgements](#acknowledgements) • [Citation](#Citation)
 
 </div>
 
@@ -177,6 +177,33 @@ docker-compose up
 ### Model Checkpoints
 Checkpoints can be downloaded here from [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing). They should be placed inside the `./checkpoints` folder. Classifier checkpoints are already located inside the `./checkpoints/classifier` folder. Unfortunately, we cannot share all checkpoints due to their license.
 
+## Foundation Models
+
+CellViT++ supports multiple foundation models as the encoder backbone, including **SAM-H**, **SAM-L**, **SAM-B**, **UNI**, **Virchow**, **Virchow2**, and **ViT256**. This modular design allows you to easily compare performance across different vision transformer backbones.
+
+> [!NOTE]
+> **Want to compare different foundation models or add your own?**
+> - 📖 **[Full Guide](./docs/FOUNDATION_MODEL_GUIDE.md)**: Comprehensive documentation on model architecture and integration
+> - ⚡ **[Quick Start](./docs/QUICK_START_FOUNDATION_MODELS.md)**: Fast track for swapping foundation models
+
+**Available Foundation Models:**
+| Model | Checkpoint | Description |
+|-------|-----------|-------------|
+| SAM-H, SAM-L, SAM-B | [Meta AI SAM](https://github.com/facebookresearch/segment-anything) | Segment Anything Model variants |
+| UNI | [HuggingFace](https://huggingface.co/mahmoodlab/UNI) | General-purpose pathology foundation model |
+| Virchow, Virchow2 | [HuggingFace](https://huggingface.co/paige-ai/Virchow) | Paige.AI foundation models |
+| ViT256 | [DINO](https://github.com/facebookresearch/dino) | DINO pretrained ViT |
+
+**Quick Example - Switching to UNI:**
+```yaml
+# In your training config
+model:
+  backbone: UNI  # Change from SAM-H to UNI
+  pretrained_encoder: ./checkpoints/uni_model.bin
+```
+
+For detailed instructions, see the [Foundation Model Guide](./docs/FOUNDATION_MODEL_GUIDE.md).
+
 ## Framework Overview
 
 This framework consists of 3 key components: **CellViT++ Algorithm**, **Cell Classification Module**, **Web-Based WSI Viewer**
@@ -194,6 +221,7 @@ Inference can either be performed in-memory (recommended) or with the old versio
 The model checkpoints can be downloaded from [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing) and should be placed in the `./checkpoint` folder. The cell classifier modules have already been provided in this repo (see classifiers inside the checkpoints folder).
 
 Examples are given [below](#examples).
+For embedding analysis, see the tutorial: [`docs/CELL_EMBEDDING_UMAP_TUTORIAL.md`](./docs/CELL_EMBEDDING_UMAP_TUTORIAL.md).
 
 Key aspects of the inference script:
 
@@ -436,6 +464,9 @@ This download example files that are placed inside the [`./test_database`](/test
 </details>
 
 ## Re-training your own classifier on new data: Workflow
+
+For dataset-specific tutorials (Ocelot, CoNSeP, Lizard, MIDOG, NuCLS, PanopTILs, SegPath, PanNuke, MoNuSeg) and classifier training guidance, see:
+[`docs/CLASSIFIER_DATASET_TUTORIALS.md`](./docs/CLASSIFIER_DATASET_TUTORIALS.md)
 
 ### 1. Detection Annotations
 

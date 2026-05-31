@@ -1,0 +1,203 @@
+# Example Configuration for Training CellViT++ with UNI Foundation Model
+#
+# This configuration demonstrates how to train CellViT++ using the UNI foundation model
+# instead of the default SAM-H backbone.
+#
+# Prerequisites:
+# 1. Download UNI checkpoint from: https://huggingface.co/mahmoodlab/UNI
+# 2. Place it at: ./checkpoints/uni_pytorch_model.bin (or update path below)
+# 3. Prepare your dataset following the structure in ./test_database/training_database/
+#
+# Usage:
+#   python3 ./cellvit/train_cellvit.py --config ./configs/foundation_models/train_uni_pannuke.yaml
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  mode: online  # Options: online, offline, disabled
+  project: CellViT-Foundation-Comparison  # WandB project name
+  notes: Training CellViT with UNI foundation model on PanNuke dataset
+  log_comment: CellViT-UNI-Fold-1
+  tags:
+    - UNI
+    - Foundation-Model
+    - Fold-1
+  wandb_dir: ./logs  # Directory for WandB logs
+  log_dir: ./logs    # Directory for training logs and checkpoints
+  level: Debug       # Logging level: Debug, Info, Warning, Error
+  group: CellViT-UNI  # WandB group for organizing runs
+
+# ============================================================================
+# Reproducibility
+# ============================================================================
+random_seed: 19
+
+# ============================================================================
+# Hardware Configuration
+# ============================================================================
+gpu: 0  # GPU ID to use (0-indexed)
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+data:
+  dataset: PanNuke  # Dataset type
+  dataset_path: /path/to/pannuke/dataset  # UPDATE THIS PATH
+  
+  # Fold configuration for cross-validation
+  train_folds: [0]  # Folds to use for training
+  val_folds: [1]    # Folds to use for validation
+  test_folds: [2]   # Folds to use for testing
+  
+  # Number of classes
+  num_nuclei_classes: 6   # Background + 5 nuclei types (PanNuke specific)
+  num_tissue_classes: 19  # 19 tissue types (PanNuke specific)
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+model:
+  # Foundation Model Selection
+  # Options: default, vit256, sam-b, sam-l, sam-h, uni, virchow, virchow2
+  backbone: UNI
+  
+  # Path to pretrained foundation model weights
+  # UPDATE THIS PATH to point to your downloaded UNI checkpoint
+  pretrained_encoder: ./checkpoints/uni_pytorch_model.bin
+  
+  # Architecture settings
+  shared_skip_connections: true  # Share skip connections between decoder branches
+  
+  # UNI-specific parameters (automatically set by CellViTUNI class):
+  # - embed_dim: 1024
+  # - depth: 24
+  # - num_heads: 12
+  # - extract_layers: [6, 12, 18, 24]
+
+# ============================================================================
+# Loss Function Configuration
+# ============================================================================
+loss:
+  # Loss for binary nuclei map (cell vs background)
+  nuclei_binary_map:
+    focaltverskyloss:
+      loss_fn: FocalTverskyLoss
+      weight: 1
+    dice:
+      loss_fn: dice_loss
+      weight: 1
+  
+  # Loss for horizontal-vertical (HV) map (used for instance segmentation)
+  hv_map:
+    mse:
+      loss_fn: mse_loss_maps
+      weight: 2.5
+    msge:
+      loss_fn: msge_loss_maps
+      weight: 8
+  
+  # Loss for nuclei type classification
+  nuclei_type_map:
+    bce:
+      loss_fn: xentropy_loss
+      weight: 0.5
+    dice:
+      loss_fn: dice_loss
+      weight: 0.2
+    mcfocaltverskyloss:
+      loss_fn: MCFocalTverskyLoss
+      weight: 0.5
+      args:
+        num_classes: 6
+  
+  # Loss for tissue type classification
+  tissue_types:
+    ce:
+      loss_fn: CrossEntropyLoss
+      weight: 0.1
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+  # Regularization
+  drop_rate: 0        # Dropout rate in MLP
+  attn_drop_rate: 0.1 # Dropout rate in attention layers
+  drop_path_rate: 0.1 # Stochastic depth rate
+  
+  # Batch and epochs
+  batch_size: 8   # Adjust based on GPU memory (UNI uses ~4GB VRAM per image)
+                  # Recommended: 8 for 24GB GPU, 4 for 16GB GPU, 16 for 48GB GPU
+  epochs: 130     # Total number of training epochs
+  
+  # Optimizer configuration
+  optimizer: AdamW
+  optimizer_hyperparameter:
+    betas: [0.85, 0.95]   # Beta parameters for AdamW
+    lr: 0.0003            # Learning rate
+    weight_decay: 0.0001  # L2 regularization
+  
+  # Learning rate scheduler
+  scheduler:
+    scheduler_type: exponential  # Options: constant, exponential, cosine
+    hyperparameters:
+      gamma: 0.85  # Decay factor for exponential scheduler
+  
+  # Early stopping
+  early_stopping_patience: 130  # Stop if no improvement for this many epochs
+  
+  # Foundation model fine-tuning
+  unfreeze_epoch: 25  # Keep encoder frozen until this epoch
+                      # This prevents catastrophic forgetting of pretrained features
+                      # Set to -1 to keep frozen throughout training
+  
+  # Sampling strategy
+  sampling_gamma: 0.85         # Gamma for weighted sampling
+  sampling_strategy: cell+tissue  # Sampling strategy for imbalanced data
+  
+  # Mixed precision training (recommended for memory efficiency)
+  mixed_precision: true  # Use automatic mixed precision (AMP)
+  
+  # Evaluation frequency
+  eval_every: 1  # Evaluate on validation set every N epochs
+
+# ============================================================================
+# Data Augmentation (Optional)
+# ============================================================================
+# Uncomment and customize if you want to add/modify augmentations
+# transformations:
+#   randomrotate90:
+#     p: 0.5
+#   horizontalflip:
+#     p: 0.5
+#   verticalflip:
+#     p: 0.5
+#   colorjitter:
+#     p: 0.2
+#     scale_setting: 0.5
+#     scale_color: 0.1
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 
+# Memory Usage:
+# - UNI requires approximately 4GB VRAM per image in the batch
+# - Total VRAM = batch_size * 4GB + model overhead (~2GB)
+# - For 24GB GPU: Use batch_size=4-8
+# - For 48GB GPU: Use batch_size=8-16
+#
+# Training Time:
+# - Expected time per epoch: ~15-20 minutes on A100 (PanNuke dataset)
+# - Total training time: ~30-40 hours for 130 epochs
+#
+# Comparison with SAM-H:
+# - UNI uses less memory than SAM-H (~4GB vs ~6GB per image)
+# - UNI is pretrained specifically on pathology images
+# - UNI may provide better performance on histopathology tasks
+#
+# Checkpoints:
+# - Best model: ./logs/<run_name>/checkpoints/model_best.pth
+# - Latest model: ./logs/<run_name>/checkpoints/latest_checkpoint.pth
+# - Use these for inference with detect_cells.py
