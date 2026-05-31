@@ -1,0 +1,104 @@
+# STHELAR 9-class Classifier Training Configuration
+#
+# This config trains a CellViT++ cell classifier head on the STHELAR dataset
+# using the full 9-class label space (one per STHELAR cell type).
+#
+# Prerequisites:
+#   1. Download and preprocess the dataset with 9 classes:
+#      python -m cellvit.training.datasets.sthelar.prepare_sthelar \
+#          --output_dir /path/to/STHELAR_9class \
+#          --magnification 40x \
+#          --num_classes 9 \
+#          --split_strategy slide
+#
+#   2. Download a pretrained CellViT checkpoint
+#
+# Training command:
+#   python cellvit/train_cell_classifier_head.py \
+#       --config docs/sthelar/configs/sthelar_classifier_9class.yaml
+
+logging:
+  mode: offline
+  project: cellvit++
+  notes: STHELAR 9-class classifier
+  log_comment: STHELAR-9class
+  tags:
+    - Classifier
+    - STHELAR
+    - 9-class
+  wandb_dir: ./logs_local/wandb
+  log_dir: ./logs_local
+  level: Info
+
+random_seed: 42
+gpu: 0
+
+data:
+  dataset: STHELAR
+  dataset_path: /path/to/STHELAR_9class   # ← UPDATE THIS PATH
+  normalize_stains_train: false
+  normalize_stains_val: false
+  num_classes: 9   # 9 fine-grained cell types
+  label_map:
+    0: Epithelial
+    1: Blood_vessel
+    2: Fibroblast_Myofibroblast
+    3: Myeloid
+    4: B_Plasma
+    5: T_NK
+    6: Melanocyte
+    7: Specialized
+    8: Other
+
+cellvit_path: ./checkpoints/CellViT-256-x40-AMP.pth   # ← UPDATE THIS PATH
+
+model:
+  hidden_dim: 256   # Larger hidden dim for more classes
+
+training:
+  batch_size: 128   # Smaller batch size due to more classes
+  epochs: 80
+  drop_rate: 0.15
+  optimizer: AdamW
+  optimizer_hyperparameter:
+    lr: 0.0005
+    betas:
+      - 0.85
+      - 0.9
+    weight_decay: 0.001
+  early_stopping_patience: 20
+  scheduler:
+    scheduler_type: cosine
+  mixed_precision: true
+  eval_every: 1
+  cache_cell_dataset: true
+  # Enable weighted sampling for imbalanced 9-class problem
+  weighted_sampling: true
+  weight_factor: 3
+
+transformations:
+  randomrotate90:
+    p: 0.5
+  horizontalflip:
+    p: 0.5
+  verticalflip:
+    p: 0.5
+  downscale:
+    p: 0.2
+    scale: 0.5
+  blur:
+    p: 0.2
+    blur_limit: 10
+  gaussnoise:
+    p: 0.25
+    var_limit: 50
+  colorjitter:
+    p: 0.25
+    scale_setting: 0.25
+    scale_color: 0.1
+  superpixels:
+    p: 0.15
+  zoomblur:
+    p: 0.1
+  randomsizedcrop:
+    p: 0.15
