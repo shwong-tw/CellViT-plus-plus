@@ -465,6 +465,9 @@ This download example files that are placed inside the [`./test_database`](/test
 
 ## Re-training your own classifier on new data: Workflow
 
+For dataset-specific tutorials (Ocelot, CoNSeP, Lizard, MIDOG, NuCLS, PanopTILs, SegPath, PanNuke, MoNuSeg) and classifier training guidance, see:
+[`docs/CLASSIFIER_DATASET_TUTORIALS.md`](./docs/CLASSIFIER_DATASET_TUTORIALS.md)
+
 ### 1. Detection Annotations
 
 #### 1.1 Folder Structure
