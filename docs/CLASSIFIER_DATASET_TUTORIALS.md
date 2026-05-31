@@ -2,7 +2,7 @@
 
 This guide summarizes the public dataset loaders in:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/cellvit/training/datasets/`
+- `./cellvit/training/datasets/`
 
 and explains how to train a CellViT classifier head with each dataset.
 
@@ -137,8 +137,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/Ocelot/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/Ocelot/`
+- `./logs/Datasets/Ocelot/`
+- `./logs/Classifiers/Ocelot/`
 
 ---
 
@@ -174,8 +174,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/CoNSeP/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/CoNSeP/`
+- `./logs/Datasets/CoNSeP/`
+- `./logs/Classifiers/CoNSeP/`
 
 ---
 
@@ -208,8 +208,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/Lizard/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/Lizard/`
+- `./logs/Datasets/Lizard/`
+- `./logs/Classifiers/Lizard/`
 
 ---
 
@@ -266,8 +266,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/MIDOG++/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/MIDOG/`
+- `./logs/Datasets/MIDOG++/`
+- `./logs/Classifiers/MIDOG/`
 
 ---
 
@@ -309,8 +309,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/NuCLS/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/NuCLS/`
+- `./logs/Datasets/NuCLS/`
+- `./logs/Classifiers/NuCLS/`
 
 ---
 
@@ -345,8 +345,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/Panoptils/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/PanopTILs/`
+- `./logs/Datasets/Panoptils/`
+- `./logs/Classifiers/PanopTILs/`
 
 ---
 
@@ -374,8 +374,8 @@ Config keys:
 
 Reference assets:
 
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Datasets/SegPath/`
-- `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/SegPath/`
+- `./logs/Datasets/SegPath/`
+- `./logs/Classifiers/SegPath/`
 
 ---
 
@@ -411,7 +411,7 @@ For classifier-head training:
 
 1. Prepare one dataset exactly matching its loader format.
 2. Start from a proven config in:
-   - `/tmp/workspace/shwong-tw/CellViT-plus-plus/logs/Classifiers/<Dataset>/.../config.yaml`
+   - `./logs/Classifiers/<Dataset>/.../config.yaml`
 3. Update:
    - `data.dataset_path`
    - split filelists/folds
@@ -421,4 +421,3 @@ For classifier-head training:
    - `python3 ./cellvit/train_cell_classifier_head.py --config /path/to/config.yaml`
 5. (Optional) run sweep:
    - `python3 ./cellvit/train_cell_classifier_head.py --config /path/to/sweep.yaml --sweep`
-
