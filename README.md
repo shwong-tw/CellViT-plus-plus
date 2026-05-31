@@ -221,6 +221,7 @@ Inference can either be performed in-memory (recommended) or with the old versio
 The model checkpoints can be downloaded from [Google-Drive](https://drive.google.com/drive/folders/1ujtMcxAr5kYYuvnbglfYZZnRH3ZOli79?usp=sharing) and should be placed in the `./checkpoint` folder. The cell classifier modules have already been provided in this repo (see classifiers inside the checkpoints folder).
 
 Examples are given [below](#examples).
+For embedding analysis, see the tutorial: [`docs/CELL_EMBEDDING_UMAP_TUTORIAL.md`](./docs/CELL_EMBEDDING_UMAP_TUTORIAL.md).
 
 Key aspects of the inference script:
 
