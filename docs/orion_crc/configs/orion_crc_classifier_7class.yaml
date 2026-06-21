@@ -1,0 +1,105 @@
+# ORION-CRC 7-class Classifier Training Configuration
+#
+# This config trains a CellViT++ cell classifier head on the ORION-CRC dataset
+# using the 7-class label space: Tumor, T_cell, Macrophage, B_cell, Stromal,
+# Endothelial, Other
+#
+# Prerequisites:
+#   1. Download and extract the ORION-CRC dataset from Zenodo:
+#      https://zenodo.org/records/15340874
+#      (ORIONCRC_dataset_tile_20x.zip)
+#
+#   2. Preprocess the dataset:
+#      python -m cellvit.training.datasets.orion_crc.prepare_orion_crc \
+#          --input_dir /path/to/ORIONCRC_dataset_tile_20x \
+#          --output_dir /path/to/ORION_CRC_processed \
+#          --num_classes 7
+#
+#   3. Download a pretrained CellViT checkpoint (e.g., CellViT-256-x20-AMP.pth)
+#
+# Training command:
+#   python cellvit/train_cell_classifier_head.py \
+#       --config docs/orion_crc/configs/orion_crc_classifier_7class.yaml
+
+logging:
+  mode: offline
+  project: cellvit++
+  notes: ORION-CRC 7-class classifier
+  log_comment: ORION-CRC-7class
+  tags:
+    - Classifier
+    - ORION-CRC
+    - 7-class
+  wandb_dir: ./logs_local/wandb
+  log_dir: ./logs_local
+  level: Info
+
+random_seed: 42
+gpu: 0
+
+data:
+  dataset: orion_crc
+  dataset_path: /path/to/ORION_CRC_processed   # ← UPDATE THIS PATH
+  normalize_stains_train: false
+  normalize_stains_val: false
+  num_classes: 7   # Tumor, T_cell, Macrophage, B_cell, Stromal, Endothelial, Other
+  label_map:
+    0: Tumor
+    1: T_cell
+    2: Macrophage
+    3: B_cell
+    4: Stromal
+    5: Endothelial
+    6: Other
+
+# Path to pretrained CellViT model checkpoint
+# Use x20 model since ORION-CRC tiles are at 20x magnification (0.5 µm/pixel)
+cellvit_path: ./checkpoints/CellViT-256-x20-AMP.pth   # ← UPDATE THIS PATH
+
+model:
+  hidden_dim: 128
+
+training:
+  batch_size: 256
+  epochs: 50
+  drop_rate: 0.1
+  optimizer: AdamW
+  optimizer_hyperparameter:
+    lr: 0.001
+    betas:
+      - 0.85
+      - 0.9
+    weight_decay: 0.0008
+  early_stopping_patience: 15
+  scheduler:
+    scheduler_type: constant
+  mixed_precision: true
+  eval_every: 1
+  cache_cell_dataset: true
+
+transformations:
+  randomrotate90:
+    p: 0.5
+  horizontalflip:
+    p: 0.5
+  verticalflip:
+    p: 0.5
+  downscale:
+    p: 0.15
+    scale: 0.5
+  blur:
+    p: 0.2
+    blur_limit: 10
+  gaussnoise:
+    p: 0.25
+    var_limit: 50
+  colorjitter:
+    p: 0.2
+    scale_setting: 0.25
+    scale_color: 0.1
+  superpixels:
+    p: 0.1
+  zoomblur:
+    p: 0.1
+  randomsizedcrop:
+    p: 0.1

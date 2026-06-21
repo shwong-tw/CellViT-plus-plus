@@ -43,6 +43,8 @@ from cellvit.training.datasets.panoptils import PanoptilsDataset
 from cellvit.training.datasets.lizard import LizardGraphDataset
 from cellvit.training.datasets.detection_dataset import DetectionDataset
 from cellvit.training.datasets.segmentation_dataset import SegmentationDataset
+from cellvit.training.datasets.sthelar import STHELARDataset
+from cellvit.training.datasets.orion_crc import ORIONCRCDataset
 from cellvit.training.trainer.trainer_cell_classifier import CellViTHeadTrainer
 from cellvit.training.trainer.trainer_cell_classifier_segpath import (
     CellViTHeadTrainerSegPath,
@@ -637,6 +639,46 @@ class ExperimentCellVitClassifier(BaseExperiment):
             train_dataset.cache_dataset()
             val_dataset.cache_dataset()
             self.logger.info("Caching datasets")
+        elif dataset.lower() in ["sthelar"]:
+            train_dataset = STHELARDataset(
+                dataset_path=self.run_conf["data"]["dataset_path"],
+                split="train",
+                filelist_path=train_filelist,
+                transforms=train_transforms,
+                normalize_stains=normalize_stains_train,
+                num_classes=self.run_conf["data"]["num_classes"],
+            )
+            val_dataset = STHELARDataset(
+                dataset_path=self.run_conf["data"]["dataset_path"],
+                split="val",
+                filelist_path=val_filelist,
+                transforms=val_transforms,
+                normalize_stains=normalize_stains_val,
+                num_classes=self.run_conf["data"]["num_classes"],
+            )
+            self.logger.info("Caching datasets")
+            train_dataset.cache_dataset()
+            val_dataset.cache_dataset()
+        elif dataset.lower() in ["orion_crc", "orion-crc", "orioncrc"]:
+            train_dataset = ORIONCRCDataset(
+                dataset_path=self.run_conf["data"]["dataset_path"],
+                split="train",
+                filelist_path=train_filelist,
+                transforms=train_transforms,
+                normalize_stains=normalize_stains_train,
+                num_classes=self.run_conf["data"]["num_classes"],
+            )
+            val_dataset = ORIONCRCDataset(
+                dataset_path=self.run_conf["data"]["dataset_path"],
+                split="val",
+                filelist_path=val_filelist,
+                transforms=val_transforms,
+                normalize_stains=normalize_stains_val,
+                num_classes=self.run_conf["data"]["num_classes"],
+            )
+            self.logger.info("Caching datasets")
+            train_dataset.cache_dataset()
+            val_dataset.cache_dataset()
         else:
             raise NotImplementedError(f"Unknown dataset: {dataset}")
         return train_dataset, val_dataset
